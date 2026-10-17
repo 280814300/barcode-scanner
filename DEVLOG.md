@@ -88,3 +88,15 @@
   - `app/build.gradle` 增加 `applicationVariants` 配置，release 输出 `barcodescanner-v1.0.apk`。
   - README 删除「为什么不用网页方案」整段，保留原生重写说明并强调「安装即用、无需联网下载任何模型」；功能特性与下载文件名同步更新。
 - 隐私红线不变：仍仅 `CAMERA` 权限、零网络、数据不出本机。
+
+## 阶段 8 · 真机实测修复（相机权限 + 导出闪退）
+- 真机实测反馈：① 扫码框镜头黑屏、无扫描；② 点击「导出 CSV / 导出 JSON」均闪退；③ 缺少明确的「开始扫描」入口。
+- 根因：
+  - 相机黑屏/无扫描：`AndroidManifest` 仅声明 `CAMERA` 权限，但 `MainActivity` 从未**运行时申请**；Android 6+（minSdk 23）未授予运行时权限时相机打不开，预览黑屏且 `decodeContinuous` 不触发，表现即「没有了开始扫描」。
+  - 导出闪退：`exportFile()` 用 `FileProvider` 生成 `content://` URI 但未向分享目标应用授予 URI 读取权限；Android 11+（targetSdk 34）目标应用读取时抛 `SecurityException`，导致本 App 闪退（CSV / JSON 同路径，故两个按钮都崩）。
+- 修复：
+  - `MainActivity` 新增运行时 `CAMERA` 权限申请（`ContextCompat.checkSelfPermission` + `ActivityCompat.requestPermissions`），授权后才 `resume()` 相机；新增 `onRequestPermissionsResult` 处理拒绝并 Toast 提示。
+  - 新增「开始扫描 / 暂停扫描」按钮（`btnScan`），显式控制扫码起停；`onResume` 仅当 `scanning` 为真才恢复相机。
+  - `exportFile()` 在 `startActivity` 前对 `queryIntentActivities` 返回的所有应用 `grantUriPermission(... FLAG_GRANT_READ_URI_PERMISSION)`，并包 `try/catch` 兜底 Toast，彻底杜绝导出闪退。
+  - `strings.xml` 增加 `start_scan` / `pause_scan` / `need_camera`；`activity_main.xml` 按钮行改为 开始扫描 / 闪光灯 / 清空 三栏。
+- 重新编译 `assembleRelease`，产物仍为 `barcodescanner-v1.0.apk`（版本号不变，属同版本缺陷修复）。
