@@ -1,0 +1,21 @@
+# ===== Android / Gradle 标准忽略 =====
+*.iml
+.gradle/
+local.properties
+.gradle/
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.keystore
+*.jks
+release-key.jks
+app/release/
+# 日志
+*.log
+# 本地 Gradle 发行版（用 wrapper 即可，无需入库）
+tools/
+# OS / IDE
+.DS_Store
+.idea/
+*.swp
