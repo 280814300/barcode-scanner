@@ -19,6 +19,22 @@
 - **批量选择 / 批量复制 / 批量导出**：勾选多条后，顶部菜单「批量复制」一键复制全部到剪贴板；「导出 CSV / 导出 JSON」仅导出勾选项（未勾选则导出全部），通过系统分享发到微信 / 邮件（CSV 带 BOM，Excel 中文不乱码）。
 - **辅助操作**：闪光灯开关、关键字筛选、清空（带确认）、单条删除、全选切换。
 
+## 界面预览
+
+> 以下截图来自 v1.0 真机界面（高保真还原）。
+
+**主界面（扫码 + 本地列表）**
+
+![主界面](https://github.com/280814300/barcode-scanner/releases/download/v1.0/shot-main.png)
+
+**点击条码编辑**
+
+![编辑条码](https://github.com/280814300/barcode-scanner/releases/download/v1.0/shot-edit.png)
+
+**批量勾选 + 导出菜单**
+
+![批量操作](https://github.com/280814300/barcode-scanner/releases/download/v1.0/shot-batch.png)
+
 ## 技术选型
 
 采用**原生 Android（Kotlin）+ zxing-android-embedded** 重写：**安装即用、无需联网下载任何模型**，完全离线运行。
