@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?android:colorBackground">
+
+    <!-- 摄像头预览 + 检测覆盖层 -->
+    <FrameLayout
+        android:id="@+id/previewFrame"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="5">
+
+        <androidx.camera.view.PreviewView
+            android:id="@+id/previewView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <com.maoge.barcodescanner.BarcodeOverlayView
+            android:id="@+id/overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <!-- 顶部工具栏 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="6dp"
+            android:gravity="center_vertical"
+            android:background="#80000000">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="条码扫描"
+                android:textColor="#fff"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <Button android:id="@+id/modeManual"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="手动" android:textSize="12sp" />
+            <Button android:id="@+id/modeBatch"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="批量" android:textSize="12sp" />
+            <Button android:id="@+id/flashBtn"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="闪光" android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- 底部状态 -->
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:padding="6dp"
+            android:background="#80000000"
+            android:textColor="#fff"
+            android:textSize="13sp"
+            android:text="正在启动摄像头…" />
+    </FrameLayout>
+
+    <!-- 下方可滚动操作区 -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="6">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <!-- 扫描区内检测到的条码（点选 / 批量） -->
+            <LinearLayout
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center_vertical">
+                <TextView android:id="@+id/detectedLabel"
+                    android:layout_width="0dp" android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:text="扫描区未检测到条码"
+                    android:textSize="13sp" />
+                <Button android:id="@+id/captureAllBtn"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="识别全部" android:textSize="12sp" />
+            </LinearLayout>
+
+            <HorizontalScrollView
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp">
+                <LinearLayout android:id="@+id/chipContainer"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:orientation="horizontal" />
+            </HorizontalScrollView>
+
+            <!-- 手动输入 -->
+            <LinearLayout
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:layout_marginTop="6dp">
+                <EditText android:id="@+id/manualInput"
+                    android:layout_width="0dp" android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:hint="手动输入条码（无法扫描时）"
+                    android:inputType="text" />
+                <Button android:id="@+id/addManualBtn"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="添加" android:textSize="12sp" />
+            </LinearLayout>
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="8dp" android:text="当前商品（已关联条码）"
+                android:textStyle="bold" android:textSize="14sp" />
+            <LinearLayout android:id="@+id/currentList"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <LinearLayout
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:layout_marginTop="6dp">
+                <Button android:id="@+id/finishBtn"
+                    android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                    android:text="完成商品并保存" android:textSize="12sp" />
+                <Button android:id="@+id/copyBatchBtn"
+                    android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                    android:text="复制本批" android:textSize="12sp" />
+                <Button android:id="@+id/clearCurrentBtn"
+                    android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                    android:text="清空当前" android:textSize="12sp" />
+            </LinearLayout>
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="10dp" android:text="今日归档"
+                android:textStyle="bold" android:textSize="14sp" />
+            <LinearLayout android:id="@+id/todayList"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <LinearLayout
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:layout_marginTop="6dp">
+                <Button android:id="@+id/exportCsvBtn"
+                    android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                    android:text="导出今日 CSV" android:textSize="12sp" />
+                <Button android:id="@+id/exportJsonBtn"
+                    android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                    android:text="导出今日 JSON" android:textSize="12sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>
