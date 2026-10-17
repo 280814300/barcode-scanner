@@ -64,3 +64,14 @@
 - 紧邻一维码（69/SN/IMEI）极端贴近时，ZXing 多码偶有漏识，必要时切换 ML Kit。
 - 沙箱无真机，摄像头实拍未在此环境验证，需在真机实测多码框对齐与点选命中。
 - 如需上架应用商店，需替换为正式签名 keystore 并配置发布流水线。
+
+## 阶段 6 · 回滚到 v1.0 单码版
+- 用户决策：放弃多码 v1.1 复杂度，回退到「第一版 APK」——简单、稳定、准确的单码识别版。
+- 源码回退：恢复 v1.0 形态——`zxing-android-embedded`（离线嵌入式扫码）+ RecyclerView 本地列表。
+  - 删除 v1.1 多码专用文件：ZxingMultiDecoder.kt / BarcodeOverlayView.kt / Models.kt。
+  - 重建：BarcodeRecord.kt（数据模型）、BarcodeAdapter.kt（列表适配器）、DataStore.kt（扁平 barcodes.json 本地存储）、MainActivity.kt（连续扫码 + 复制 + 导出 + 手动录入 + 筛选 + 清空）、item_barcode.xml / top_menu.xml。
+  - build.gradle 依赖改为 `zxing-android-embedded:4.3.0` + `recyclerview:1.3.2`，移除 CameraX 与 ZXing core；versionCode 回退到 1 / versionName "1.0"。
+  - AndroidManifest 仅 CAMERA 权限（无 INTERNET），保留 FileProvider 供导出分享。
+- 重新编译 `assembleDebug` + `assembleRelease`（release 仍走 local.properties 签名配置），产物：app-debug.apk / app-release.apk。
+- README / DEVLOG 同步回退描述到 v1.0；git 仓库以新提交对齐。
+- 注：v1.1 的按天归档 / 多码同框 / 重复标注 / 本批复制能力暂未纳入本版本；如后续需要可在此基础上再加回。
