@@ -14,17 +14,14 @@
 - **单码实时识别**：基于 `zxing-android-embedded`（ZXing）的嵌入式相机预览，连续自动解码，识别即入列表。
   支持常见一维/二维码：EAN-13、EAN-8、Code128、Code39、UPC、QR 等。
 - **本地列表**：识别结果自动写入本机 `barcodes.json`，带格式与时间，启动即加载历史。
+- **点击编辑**：点击任意已扫描条码即可进入编辑，修改后确认自动保存。
 - **复制单条**：每条「复制」按钮一键复制到剪贴板。
-- **批量导出**：顶部菜单「导出 CSV / 导出 JSON」，通过系统分享发到微信 / 邮件（CSV 带 BOM，Excel 中文不乱码）。
-- **辅助操作**：闪光灯开关、手动录入（无摄像头或不便扫码时）、关键字筛选、清空（带确认）、单条删除。
+- **批量选择 / 批量复制 / 批量导出**：勾选多条后，顶部菜单「批量复制」一键复制全部到剪贴板；「导出 CSV / 导出 JSON」仅导出勾选项（未勾选则导出全部），通过系统分享发到微信 / 邮件（CSV 带 BOM，Excel 中文不乱码）。
+- **辅助操作**：闪光灯开关、关键字筛选、清空（带确认）、单条删除、全选切换。
 
-## 为什么不用网页方案
+## 技术选型
 
-早期原型基于网页，但移动端存在两道硬墙：
-1. **摄像头安全环境限制**：Android Chrome 仅在 HTTPS / localhost 下才放行 `getUserMedia`，`file://` 直接打开即便已授权也会被拦截。
-2. **WebView 不支持摄像头**：把网页套壳成 App，Android WebView 无法调用 `getUserMedia` 取流。
-
-因此采用**原生 Android（Kotlin）+ zxing-android-embedded** 重写，安装即用、无需联网下载任何模型。
+采用**原生 Android（Kotlin）+ zxing-android-embedded** 重写：**安装即用、无需联网下载任何模型**，完全离线运行。
 
 ## 隐私与离线
 
@@ -36,7 +33,7 @@
 
 ## 下载与安装
 
-- 在 [Releases](../../releases) 页面下载 `app-release.apk`。
+- 在 [Releases](../../releases) 页面下载 `barcodescanner-v1.0.apk`。
 - 将 APK 传到手机（数据线 / 微信文件传输 / U 盘）。
 - 手机「设置 → 安全」开启**允许未知来源应用安装**，点击 APK 安装。
 - 首次打开请求摄像头权限，允许即可使用。
@@ -65,7 +62,7 @@ cd BarcodeApp
 # 若不配置，assembleRelease 仍会产出未签名 APK，需自行签名后安装。
 
 ./gradlew assembleRelease        # 或 assembleDebug
-# 产出：app/build/outputs/apk/release/app-release.apk
+# 产出：app/build/outputs/apk/release/barcodescanner-v1.0.apk
 ```
 
 ---
@@ -79,7 +76,7 @@ BarcodeApp/
 │   └── src/main/
 │       ├── AndroidManifest.xml
 │       ├── java/com/maoge/barcodescanner/
-│       │   ├── MainActivity.kt        # 主交互：连续扫码、复制、导出、手动录入、清空
+│       │   ├── MainActivity.kt        # 主交互：连续扫码、复制、编辑、批量复制、批量导出、清空
 │       │   ├── BarcodeRecord.kt       # 数据模型
 │       │   ├── BarcodeAdapter.kt      # RecyclerView 列表适配器
 │       │   └── DataStore.kt           # 本地 JSON 持久化
@@ -94,7 +91,7 @@ BarcodeApp/
 
 ## 版本说明
 
-- **v1.0（当前）**：单码实时识别 + 本地列表 + 复制/导出/手动录入/筛选/清空，完全离线。
+- **v1.0（当前）**：单码实时识别 + 本地列表 + 复制/编辑/批量复制/批量导出/筛选/清空，完全离线。
 - 多码同框、按天归档、重复标注等增强能力曾在内部迭代过，本版本聚焦「稳定、准确、简单」的单码场景。
   若你的商品常带多个紧邻条码（69 码 / SN / IMEI）需要同框批量识别，可再评估升级方案。
 
