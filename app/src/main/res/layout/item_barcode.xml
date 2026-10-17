@@ -3,20 +3,29 @@
     android:orientation="horizontal"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:padding="12dp"
+    android:padding="8dp"
     android:gravity="center_vertical">
 
+    <CheckBox
+        android:id="@+id/cbSelect"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="6dp" />
+
+    <!-- 点击此区域进入编辑状态 -->
     <LinearLayout
+        android:id="@+id/rowContent"
         android:orientation="vertical"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_weight="1">
+        android:layout_weight="1"
+        android:paddingEnd="8dp">
 
         <TextView
             android:id="@+id/tvValue"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="16sp"
+            android:textSize="14sp"
             android:textStyle="bold"
             android:textColor="?attr/colorOnSurface" />
 
@@ -24,9 +33,9 @@
             android:id="@+id/tvMeta"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="12sp"
+            android:textSize="11sp"
             android:textColor="?attr/colorOutline"
-            android:layout_marginTop="2dp" />
+            android:layout_marginTop="1dp" />
     </LinearLayout>
 
     <Button
@@ -34,13 +43,24 @@
         style="@style/Widget.Material3.Button.TonalButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:minHeight="32dp"
+        android:minWidth="0dp"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:textSize="13sp"
         android:text="@string/copy" />
 
-    <Button
+    <!-- 删除：缩小为小号图标按钮 -->
+    <ImageButton
         android:id="@+id/btnDelete"
-        style="@style/Widget.Material3.Button.OutlinedButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
         android:layout_marginStart="4dp"
-        android:text="@string/delete" />
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/delete"
+        android:scaleType="fitCenter"
+        android:tint="?attr/colorControlNormal"
+        android:src="@drawable/ic_delete" />
 </LinearLayout>

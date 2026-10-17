@@ -13,16 +13,27 @@
         app:titleTextColor="@android:color/white"
         app:popupTheme="@style/ThemeOverlay.Material3.Dark" />
 
+    <!-- 取景框区域：按黄金分割（较小部分 ≈0.382）与下方列表区（≈0.618）分配可用高度 -->
     <com.journeyapps.barcodescanner.DecoratedBarcodeView
         android:id="@+id/barcodeView"
         android:layout_width="match_parent"
-        android:layout_height="220dp" />
+        android:layout_height="0dp"
+        android:layout_weight="1" />
 
     <LinearLayout
         android:orientation="horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="8dp">
+
+        <Button
+            android:id="@+id/btnScan"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:text="@string/start_scan" />
 
         <Button
             android:id="@+id/btnFlash"
@@ -32,15 +43,6 @@
             android:layout_weight="1"
             android:layout_marginEnd="4dp"
             android:text="@string/flashlight" />
-
-        <Button
-            android:id="@+id/btnManual"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginEnd="4dp"
-            android:text="@string/manual" />
 
         <Button
             android:id="@+id/btnClear"
@@ -61,11 +63,12 @@
         android:paddingEnd="16dp"
         android:paddingBottom="8dp" />
 
+    <!-- 列表区域：黄金分割较大部分（≈0.618） -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_weight="1.618"
         android:clipToPadding="false"
         android:padding="8dp" />
 </LinearLayout>

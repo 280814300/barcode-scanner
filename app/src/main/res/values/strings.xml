@@ -2,17 +2,26 @@
     <string name="app_name">条码扫描</string>
     <string name="flashlight">闪光灯</string>
     <string name="flashlight_off">关闪光</string>
-    <string name="manual">手动录入</string>
-    <string name="manual_hint">输入条码内容</string>
     <string name="clear_all">清空</string>
     <string name="clear_confirm">确定清空本地所有条码记录？</string>
     <string name="filter_hint">筛选条码 / 格式</string>
     <string name="copy">复制</string>
     <string name="delete">删除</string>
-    <string name="add">添加</string>
-    <string name="added">已添加</string>
     <string name="cancel">取消</string>
     <string name="export_csv">导出 CSV</string>
     <string name="export_json">导出 JSON</string>
     <string name="export_to">导出条码到</string>
+    <!-- 编辑 -->
+    <string name="edit_title">编辑条码</string>
+    <string name="save">保存</string>
+    <string name="saved">已保存</string>
+    <!-- 扫描控制 -->
+    <string name="start_scan">开始扫描</string>
+    <string name="pause_scan">暂停扫描</string>
+    <string name="need_camera">需要相机权限才能扫码</string>
+    <!-- 批量 -->
+    <string name="batch_copy">批量复制</string>
+    <string name="select_all">全选 / 取消</string>
+    <string name="copied_count">已复制 %1$d 条条码</string>
+    <string name="exported_count">已导出 %1$d 条条码</string>
 </resources>

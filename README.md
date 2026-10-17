@@ -1,4 +1,4 @@
-# 条码扫描 · 离线条码识别 App（v1.0 单码版）
+# 条码扫描 · 离线条码识别 App（v1.01 单码版）
 
 一款面向手机 / 平板等移动设备的**纯本地、零联网**条码识别工具，用于零售、仓储、盘点等场景。
 识别结果只保存在本机，绝不对外上传，符合企业数据本地化合规要求。
@@ -9,7 +9,7 @@
 
 ---
 
-## 功能特性（v1.0）
+## 功能特性（v1.01）
 
 - **单码实时识别**：基于 `zxing-android-embedded`（ZXing）的嵌入式相机预览，连续自动解码，识别即入列表。
   支持常见一维/二维码：EAN-13、EAN-8、Code128、Code39、UPC、QR 等。
@@ -21,19 +21,19 @@
 
 ## 界面预览
 
-> 以下截图来自 v1.0 真机界面（高保真还原）。
+> 以下截图来自 v1.01 真机界面（高保真还原）。
 
 **主界面（扫码 + 本地列表）**
 
-![主界面](https://github.com/280814300/barcode-scanner/releases/download/v1.0/shot-main.png)
+![主界面](https://github.com/280814300/barcode-scanner/releases/download/v1.01/shot-main.png)
 
 **点击条码编辑**
 
-![编辑条码](https://github.com/280814300/barcode-scanner/releases/download/v1.0/shot-edit.png)
+![编辑条码](https://github.com/280814300/barcode-scanner/releases/download/v1.01/shot-edit.png)
 
 **批量勾选 + 导出菜单**
 
-![批量操作](https://github.com/280814300/barcode-scanner/releases/download/v1.0/shot-batch.png)
+![批量操作](https://github.com/280814300/barcode-scanner/releases/download/v1.01/shot-batch.png)
 
 ## 技术选型
 
@@ -49,7 +49,7 @@
 
 ## 下载与安装
 
-- 在 [Releases](../../releases) 页面下载 `barcodescanner-v1.0.apk`。
+- 在 [Releases](../../releases) 页面下载 `barcodescanner-v1.01.apk`。
 - 将 APK 传到手机（数据线 / 微信文件传输 / U 盘）。
 - 手机「设置 → 安全」开启**允许未知来源应用安装**，点击 APK 安装。
 - 首次打开请求摄像头权限，允许即可使用。
@@ -78,7 +78,7 @@ cd BarcodeApp
 # 若不配置，assembleRelease 仍会产出未签名 APK，需自行签名后安装。
 
 ./gradlew assembleRelease        # 或 assembleDebug
-# 产出：app/build/outputs/apk/release/barcodescanner-v1.0.apk
+# 产出：app/build/outputs/apk/release/barcodescanner-v1.01.apk
 ```
 
 ---
@@ -107,7 +107,7 @@ BarcodeApp/
 
 ## 版本说明
 
-- **v1.0（当前）**：单码实时识别 + 本地列表 + 复制/编辑/批量复制/批量导出/筛选/清空，完全离线。
+- **v1.01（当前）**：在 v1.0 基础上优化视觉比例——取景框与列表区按黄金分割分配，列表行整体缩小，删除按钮改为小号图标，界面更紧凑。功能同 v1.0：单码实时识别 + 本地列表 + 复制/编辑/批量复制/批量导出/筛选/清空，完全离线。
 - 多码同框、按天归档、重复标注等增强能力曾在内部迭代过，本版本聚焦「稳定、准确、简单」的单码场景。
   若你的商品常带多个紧邻条码（69 码 / SN / IMEI）需要同框批量识别，可再评估升级方案。
 

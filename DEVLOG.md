@@ -100,3 +100,14 @@
   - `exportFile()` 在 `startActivity` 前对 `queryIntentActivities` 返回的所有应用 `grantUriPermission(... FLAG_GRANT_READ_URI_PERMISSION)`，并包 `try/catch` 兜底 Toast，彻底杜绝导出闪退。
   - `strings.xml` 增加 `start_scan` / `pause_scan` / `need_camera`；`activity_main.xml` 按钮行改为 开始扫描 / 闪光灯 / 清空 三栏。
 - 重新编译 `assembleRelease`，产物仍为 `barcodescanner-v1.0.apk`（版本号不变，属同版本缺陷修复）。
+
+## 阶段 9 · v1.01 视觉比例优化（取景框黄金分割 + 列表行缩小 + 删除图标化）
+- 需求：① 取景框区域缩小，与下方列表区按**黄金分割**分配；② 扫描出的条码整行（含复制 / 删除按钮）按比例缩小；③ 删除按钮缩小为小号删除图标。
+- 实现：
+  - `activity_main.xml`：`barcodeView` 由固定 `220dp` 改为 `0dp` + `layout_weight="1"`，`recyclerView` 改为 `layout_weight="1.618"`（φ≈1.618）。取景框占较小部分（≈0.382），列表占较大部分（≈0.618），二者呈黄金分割；相机预览随屏幕尺寸自适应。
+  - `item_barcode.xml`：整行按比例缩小——根 `padding` 12dp→8dp，`tvValue` 16sp→14sp，`tvMeta` 12sp→11sp；复制按钮 `minHeight` 32dp、`textSize` 13sp、`padding` 收紧；删除由文字 `Button` 改为 32×32dp 的 `ImageButton`（`ic_delete.xml` 矢量垃圾桶图标 + `contentDescription`），整行更紧凑。
+  - 新增 `res/drawable/ic_delete.xml`：24dp 矢量垃圾桶图标，fillColor 白、由 `android:tint="?attr/colorControlNormal"` 着色，适配深浅主题。
+  - `BarcodeAdapter.kt` 无需改动：`btnDelete` 字段类型由 Button 变 ImageButton，仍仅调用 `setOnClickListener`，viewBinding 自动适配。
+  - `app/build.gradle`：`versionCode 2` / `versionName "1.01"`，release 输出自动为 `barcodescanner-v1.01.apk`。
+- 重新编译 `assembleRelease`，产物 `barcodescanner-v1.01.apk`。
+- 隐私红线不变：仍仅 `CAMERA` 权限、零网络、数据不出本机。

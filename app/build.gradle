@@ -11,8 +11,8 @@ android {
         applicationId "com.maoge.barcodescanner"
         minSdk 23
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.01"
     }
 
     // 发布签名：口令来自 local.properties（已被 .gitignore 忽略，不会入库）
@@ -53,6 +53,15 @@ android {
     }
     buildFeatures {
         viewBinding true
+    }
+
+    // Release 产物命名为 barcodescanner-v<版本号>.apk
+    android.applicationVariants.all { variant ->
+        if (variant.buildType.name == 'release') {
+            variant.outputs.all {
+                outputFileName = "barcodescanner-v${variant.versionName}.apk"
+            }
+        }
     }
 }
 
