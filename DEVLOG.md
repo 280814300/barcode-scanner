@@ -77,3 +77,14 @@
 - 重新编译 `assembleDebug` + `assembleRelease`（release 仍走 local.properties 签名配置），产物：app-debug.apk / app-release.apk。
 - README / DEVLOG 同步回退描述到 v1.0；git 仓库以新提交对齐。
 - 注：v1.1 的按天归档 / 多码同框 / 重复标注 / 本批复制能力暂未纳入本版本；如后续需要可在此基础上再加回。
+
+## 阶段 7 · v1.0 交互增强（移除手动录入、点击编辑、批量复制/导出）
+- 需求：① 移除「手动录入」按钮；② 点击已扫描条码进入编辑、确认后自动保存；③ 新增批量复制与批量导出；④ Release 下载文件名改为 `barcodescanner-v<版本号>.apk`；⑤ README 精简，去掉网页方案说明，强调原生重写、安装即用、无需联网下载模型。
+- 实现：
+  - `activity_main.xml` 删除 `btnManual`；`MainActivity.kt` 删除 `manualEntry()` 及其绑定。
+  - `BarcodeRecord.value` 改为 `var`，支持原地编辑；`BarcodeAdapter` 新增 `onEdit` 回调、勾选集合 `selected` 及 `getSelected / clearSelection / toggleSelectAll / isAllSelected`；`item_barcode.xml` 增加 `CheckBox` 与可点击内容区 `rowContent`。
+  - `MainActivity.editRecord()`：弹窗预填当前值，确认后写回并 `DataStore.save` 自动保存。
+  - 批量：`batchCopy()` 复制勾选项（未勾选则全部，换行拼接）；`exportCsv/exportJson` 改为导出勾选项（未勾选则全部）；菜单新增「全选 / 取消」「批量复制」。
+  - `app/build.gradle` 增加 `applicationVariants` 配置，release 输出 `barcodescanner-v1.0.apk`。
+  - README 删除「为什么不用网页方案」整段，保留原生重写说明并强调「安装即用、无需联网下载任何模型」；功能特性与下载文件名同步更新。
+- 隐私红线不变：仍仅 `CAMERA` 权限、零网络、数据不出本机。
