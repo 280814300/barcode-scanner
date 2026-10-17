@@ -5,6 +5,8 @@
 
 > 包名：`com.maoge.barcodescanner` ｜ 最低支持 Android 6.0（API 23）｜ 完全离线运行
 
+**作者**：文学酒铺 ｜ **网站**：[wenxuejiupu.com](https://wenxuejiupu.com)
+
 ---
 
 ## 功能特性（v1.0）
@@ -95,6 +97,13 @@ BarcodeApp/
 - **v1.0（当前）**：单码实时识别 + 本地列表 + 复制/导出/手动录入/筛选/清空，完全离线。
 - 多码同框、按天归档、重复标注等增强能力曾在内部迭代过，本版本聚焦「稳定、准确、简单」的单码场景。
   若你的商品常带多个紧邻条码（69 码 / SN / IMEI）需要同框批量识别，可再评估升级方案。
+
+## 作者与网站
+
+- **作者**：文学酒铺
+- **网站**：[https://wenxuejiupu.com](https://wenxuejiupu.com)
+
+如果你觉得这个工具好用，欢迎到网站逛逛，或在本仓库提 Issue / PR。
 
 ## License
 
