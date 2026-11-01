@@ -1,0 +1,12 @@
+{
+  "id": "com.litwine.stocktake",
+  "name": "批量盘点",
+  "version": "1.0.0",
+  "author": "毛栋梁",
+  "minHostVersion": "1.02",
+  "entry": "main.lua",
+  "description": "盘点模式：点菜单开始后逐件扫描自动计数(+1)，长按记录可减1纠错；再次点菜单结束并导出实盘 CSV。",
+  "triggers": ["on_menu", "on_scan", "on_record_longclick"],
+  "permissions": ["read_records", "write_records", "ui_form", "storage", "export_csv"],
+  "dependencies": []
+}

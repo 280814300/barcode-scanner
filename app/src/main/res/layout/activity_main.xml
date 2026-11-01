@@ -11,7 +11,18 @@
         android:layout_height="?attr/actionBarSize"
         android:background="?attr/colorPrimary"
         app:titleTextColor="@android:color/white"
-        app:popupTheme="@style/ThemeOverlay.Material3.Dark" />
+        app:popupTheme="@style/ThemeOverlay.Material3.Dark">
+
+        <ImageButton
+            android:id="@+id/btnMenu"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:src="@drawable/ic_menu_overflow"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/menu_button"
+            android:padding="10dp" />
+    </com.google.android.material.appbar.MaterialToolbar>
 
     <!-- 取景框区域：按黄金分割（较小部分 ≈0.382）与下方列表区（≈0.618）分配可用高度 -->
     <com.journeyapps.barcodescanner.DecoratedBarcodeView

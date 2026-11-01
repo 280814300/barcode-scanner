@@ -1,0 +1,12 @@
+{
+  "id": "com.litwine.barcode69",
+  "name": "69码商品识别",
+  "version": "1.0.0",
+  "author": "毛栋梁",
+  "minHostVersion": "1.02",
+  "entry": "main.lua",
+  "description": "识别 690-699 开头的 EAN-13 商品条码，自动查本地产品库；未收录则弹窗录入名称/规格/单位/单价并写入产品库。",
+  "triggers": ["on_scan"],
+  "permissions": ["read_records", "write_records", "ui_form", "product_db"],
+  "dependencies": []
+}

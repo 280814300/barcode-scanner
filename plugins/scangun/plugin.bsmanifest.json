@@ -1,0 +1,12 @@
+{
+  "id": "scangun",
+  "name": "外接扫码枪",
+  "version": "1.1.0",
+  "author": "毛栋梁",
+  "minHostVersion": "1.03",
+  "entry": "main.lua",
+  "description": "将手机作为电脑的外接扫码枪：连接电脑后，每次扫码实时发送到电脑端接收器。需要 network 权限。",
+  "triggers": ["on_menu", "on_scan"],
+  "permissions": ["network"],
+  "dependencies": []
+}

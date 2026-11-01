@@ -1,16 +1,18 @@
-# 条码扫描 · 离线条码识别 App（v1.01 单码版）
+# 条码扫描 · 离线条码识别 App（v1.03 插件版）
 
 一款面向手机 / 平板等移动设备的**纯本地、零联网**条码识别工具，用于零售、仓储、盘点等场景。
 识别结果只保存在本机，绝不对外上传，符合企业数据本地化合规要求。
 
 > 包名：`com.maoge.barcodescanner` ｜ 最低支持 Android 6.0（API 23）｜ 完全离线运行
 
-**作者**：文学酒铺 ｜ **网站**：[wenxuejiupu.com](https://wenxuejiupu.com)
+**作者**：毛栋梁 ｜ **网站**：[wenxuejiupu.com](https://wenxuejiupu.com)
 
 ---
 
-## 功能特性（v1.01）
+## 功能特性（v1.03）
 
+- **插件扩展**：支持以 Lua 脚本插件扩展功能，第三方插件也可导入使用。详见 [PLUGIN_GUIDE.md](./PLUGIN_GUIDE.md)。官方示例插件：`外接扫码枪` 已**随 APK 内置**（首次启动自动安装，可在插件中心启用/禁用/卸载）；`69码商品识别`、`批量盘点` 仍为可导入的示例插件。
+- **外接扫码枪（需联网权限，已内置）**：`外接扫码枪` 插件随安装包内置，首次启动自动装入并默认启用，在插件中心可随时开关或卸载。**电脑上运行 `scangun_receiver.py` 即自动生成连接二维码**，手机直接扫描该二维码即可一键连接、无需手动输入地址；此后每次扫码实时发往电脑端接收器（配套 `scangun_receiver.py`，仅标准库 + 可选二维码库、纯本地运行）。该插件是**唯一**会启用网络的功能，且基础功能仍完全离线。
 - **单码实时识别**：基于 `zxing-android-embedded`（ZXing）的嵌入式相机预览，连续自动解码，识别即入列表。
   支持常见一维/二维码：EAN-13、EAN-8、Code128、Code39、UPC、QR 等。
 - **本地列表**：识别结果自动写入本机 `barcodes.json`，带格式与时间，启动即加载历史。
@@ -18,22 +20,27 @@
 - **复制单条**：每条「复制」按钮一键复制到剪贴板。
 - **批量选择 / 批量复制 / 批量导出**：勾选多条后，顶部菜单「批量复制」一键复制全部到剪贴板；「导出 CSV / 导出 JSON」仅导出勾选项（未勾选则导出全部），通过系统分享发到微信 / 邮件（CSV 带 BOM，Excel 中文不乱码）。
 - **辅助操作**：闪光灯开关、关键字筛选、清空（带确认）、单条删除、全选切换。
+- **关于软件**：右上角「⋮」菜单 →「关于软件」可查看软件版本、作者署名、网站链接（可点击跳转浏览器）、软件简介与开源声明。
 
 ## 界面预览
 
-> 以下截图来自 v1.01 真机界面（高保真还原）。
+> 以下截图来自 v1.02 真机界面（高保真还原）。
 
 **主界面（扫码 + 本地列表）**
 
-![主界面](https://github.com/280814300/barcode-scanner/releases/download/v1.01/shot-main.png)
+![主界面](https://github.com/280814300/barcode-scanner/releases/download/v1.02/shot-main.png)
 
 **点击条码编辑**
 
-![编辑条码](https://github.com/280814300/barcode-scanner/releases/download/v1.01/shot-edit.png)
+![编辑条码](https://github.com/280814300/barcode-scanner/releases/download/v1.02/shot-edit.png)
 
 **批量勾选 + 导出菜单**
 
-![批量操作](https://github.com/280814300/barcode-scanner/releases/download/v1.01/shot-batch.png)
+![批量操作](https://github.com/280814300/barcode-scanner/releases/download/v1.02/shot-batch.png)
+
+**插件中心（导入 / 启用 / 卸载 / 分享接收）**
+
+> 截图待补充。插件中心支持从本机导入 `.bsplugin` 插件包，或接收其他应用分享的插件；可单独启用/禁用、卸载，并在右上角菜单挂载插件的自定义入口。
 
 ## 技术选型
 
@@ -41,7 +48,7 @@
 
 ## 隐私与离线
 
-- 应用**仅申请摄像头权限**，无任何网络权限（安装包权限清单里只有 `CAMERA`）。
+- 应用基础功能**仅使用摄像头权限**；为支持可选的「外接扫码枪」插件，安装包声明了 `INTERNET` 权限，但该权限**仅被声明了 `network` 权限的该插件通过宿主桥间接使用**，基础功能与另外两个官方插件（69码、盘点）依旧零网络、数据不出本机。
 - 所有扫码数据仅存于本机存储，导出文件也只生成在本地，全程不出设备。
 - 离线解码，不依赖云端识别服务，断网环境同样可用。
 
@@ -49,7 +56,7 @@
 
 ## 下载与安装
 
-- 在 [Releases](../../releases) 页面下载 `barcodescanner-v1.01.apk`。
+- 在 [Releases](../../releases) 页面下载 `barcodescanner-v1.03.apk`。
 - 将 APK 传到手机（数据线 / 微信文件传输 / U 盘）。
 - 手机「设置 → 安全」开启**允许未知来源应用安装**，点击 APK 安装。
 - 首次打开请求摄像头权限，允许即可使用。
@@ -78,7 +85,7 @@ cd BarcodeApp
 # 若不配置，assembleRelease 仍会产出未签名 APK，需自行签名后安装。
 
 ./gradlew assembleRelease        # 或 assembleDebug
-# 产出：app/build/outputs/apk/release/barcodescanner-v1.01.apk
+# 产出：app/build/outputs/apk/release/barcodescanner-v1.03.apk
 ```
 
 ---
@@ -95,9 +102,13 @@ BarcodeApp/
 │       │   ├── MainActivity.kt        # 主交互：连续扫码、复制、编辑、批量复制、批量导出、清空
 │       │   ├── BarcodeRecord.kt       # 数据模型
 │       │   ├── BarcodeAdapter.kt      # RecyclerView 列表适配器
-│       │   └── DataStore.kt           # 本地 JSON 持久化
+│       │   ├── DataStore.kt           # 本地 JSON 持久化
+│       │   ├── PluginsActivity.kt     # 插件中心：导入/启用/禁用/卸载/分享接收
+│       │   └── plugin/                # 插件框架：Manifest/Manager/Sandbox/Host/Engine
 │       ├── res/                        # 布局、图标、字符串、主题、菜单、FileProvider 路径
 │       └── xml/file_paths.xml
+├── plugins/                           # 示例插件源码（.bsplugin 由脚本打包）
+├── plugins_dist/                      # 打包产物 + 静态分发页模板
 ├── build.gradle / settings.gradle
 ├── gradle.properties / .gitignore
 └── README.md / DEVLOG.md
@@ -107,13 +118,16 @@ BarcodeApp/
 
 ## 版本说明
 
-- **v1.01（当前）**：在 v1.0 基础上优化视觉比例——取景框与列表区按黄金分割分配，列表行整体缩小，删除按钮改为小号图标，界面更紧凑。功能同 v1.0：单码实时识别 + 本地列表 + 复制/编辑/批量复制/批量导出/筛选/清空，完全离线。
+- **v1.03（当前）**：新增「外接扫码枪」插件——以独立可导入的插件形式封装，导入即启用；通过宿主提供的受 `network` 权限管控的 `host.scangun` 桥（声明式权限 + 宿主原生 TCP 客户端），将手机作为电脑外接扫码枪，扫码数据实时发往电脑端接收器（配套 `scangun_receiver.py`）。沙箱仍禁网，仅声明 `network` 的插件可间接联网，离线红线不破；安装包新增 `INTERNET` 权限但仅被该插件使用。宿主版本号 `HOST_VERSION` 升至 1.03。
+- **v1.02**：新增插件扩展框架——Lua 脚本沙箱（白名单 API、禁联网/文件/反射，守住离线底线）+ 插件中心（导入/启用/禁用/卸载/分享接收）+ 两个官方示例插件（69码商品识别、批量盘点）；右上角菜单新增「关于软件」弹窗（版本/作者/网站链接/简介/开源声明）。界面延续 v1.01 黄金分割布局。
+- v1.01：优化视觉比例——取景框与列表区按黄金分割分配，列表行整体缩小，删除按钮改为小号图标。
+- v1.0：单码实时识别 + 本地列表 + 复制/编辑/批量复制/批量导出/筛选/清空，完全离线。
 - 多码同框、按天归档、重复标注等增强能力曾在内部迭代过，本版本聚焦「稳定、准确、简单」的单码场景。
   若你的商品常带多个紧邻条码（69 码 / SN / IMEI）需要同框批量识别，可再评估升级方案。
 
 ## 作者与网站
 
-- **作者**：文学酒铺
+- **作者**：毛栋梁
 - **网站**：[https://wenxuejiupu.com](https://wenxuejiupu.com)
 
 如果你觉得这个工具好用，欢迎到网站逛逛，或在本仓库提 Issue / PR。

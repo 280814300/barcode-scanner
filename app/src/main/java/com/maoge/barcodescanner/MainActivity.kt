@@ -24,11 +24,20 @@ import com.journeyapps.barcodescanner.DecoratedBarcodeView
 import com.maoge.barcodescanner.databinding.ActivityMainBinding
 import org.json.JSONArray
 import java.io.File
+import android.text.InputType
+import android.view.Menu
+import android.widget.LinearLayout
+import com.maoge.barcodescanner.plugin.PluginEngine
+import com.maoge.barcodescanner.plugin.PluginManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.core.text.HtmlCompat
+import android.text.method.LinkMovementMethod
+import android.widget.TextView
+import android.widget.PopupMenu
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), PluginEngine.HostUi {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var adapter: BarcodeAdapter
@@ -53,7 +62,8 @@ class MainActivity : AppCompatActivity() {
             records,
             onCopy = ::copyRecord,
             onDelete = ::deleteRecord,
-            onEdit = ::editRecord
+            onEdit = ::editRecord,
+            onLongClick = { PluginEngine.dispatchLongClick(it) }
         )
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
@@ -78,6 +88,12 @@ class MainActivity : AppCompatActivity() {
             }
             override fun afterTextChanged(s: Editable?) {}
         })
+
+        // 绑定插件引擎：传入 records 引用、数据变更回调与 UI 宿主
+        PluginEngine.bind(this, records, { saveAndRefresh() }, this)
+
+        // 右上角显式菜单按钮（避免部分机型隐藏系统 overflow 图标导致菜单唤不出）
+        binding.btnMenu.setOnClickListener { showPopupMenu() }
     }
 
     private val callback = object : BarcodeCallback {
@@ -93,6 +109,7 @@ class MainActivity : AppCompatActivity() {
                 DataStore.save(this@MainActivity, records)
                 adapter.applyFilter(binding.etFilter.text.toString())
                 Toast.makeText(this@MainActivity, "已识别：$v", Toast.LENGTH_SHORT).show()
+                PluginEngine.dispatchScan(rec)
             }
         }
 
@@ -102,6 +119,8 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (scanning) binding.barcodeView.resume()
+        // 从「插件中心」导入/启用/禁用插件返回后，刷新右上角菜单（重建以挂载/卸载插件项）
+        invalidateOptionsMenu()
     }
 
     override fun onPause() {
@@ -197,6 +216,51 @@ class MainActivity : AppCompatActivity() {
         seen.addAll(records.map { it.value })
     }
 
+    /** 插件或宿主修改 records 后统一保存并刷新列表 */
+    private fun saveAndRefresh() {
+        DataStore.save(this, records)
+        rebuildSeen()
+        adapter.applyFilter(binding.etFilter.text.toString())
+    }
+
+    // ---------------- PluginEngine.HostUi 实现 ----------------
+    override fun toast(msg: String) {
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    }
+
+    override fun runOnUi(r: Runnable) {
+        runOnUiThread(r)
+    }
+
+    override fun showForm(
+        title: String,
+        fields: List<PluginEngine.FormField>,
+        onResult: (Map<String, String>) -> Unit
+    ) {
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(50, 40, 50, 10)
+        }
+        val edits = mutableMapOf<String, EditText>()
+        fields.forEach { f ->
+            val et = EditText(this).apply {
+                hint = f.label
+                setText(f.default)
+                inputType = if (f.type == "number") InputType.TYPE_CLASS_NUMBER else InputType.TYPE_CLASS_TEXT
+            }
+            edits[f.key] = et
+            layout.addView(et)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setView(layout)
+            .setPositiveButton(R.string.save) { _, _ ->
+                onResult(edits.mapValues { it.value.text.toString() })
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
     private fun clearAll() {
         AlertDialog.Builder(this)
             .setTitle(R.string.clear_all)
@@ -208,6 +272,34 @@ class MainActivity : AppCompatActivity() {
                 adapter.applyFilter("")
             }
             .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    // 关于软件：版本 / 作者署名 / 网站链接 / 简介 / 开源声明
+    private fun showAbout() {
+        val version = BuildConfig.VERSION_NAME
+        val author = getString(R.string.about_author)
+        val website = getString(R.string.about_website)
+        val intro = getString(R.string.about_intro)
+        val oss = getString(R.string.about_oss)
+        val html = """
+            <b>软件版本</b>：v$version<br/>
+            <b>作者</b>：$author<br/>
+            <b>网站</b>：<a href="$website">$website</a><br/><br/>
+            $intro<br/><br/>
+            $oss
+        """.trimIndent()
+        val tv = TextView(this).apply {
+            setPadding(60, 40, 60, 20)
+            text = HtmlCompat.fromHtml(html, HtmlCompat.FROM_HTML_MODE_LEGACY)
+            movementMethod = LinkMovementMethod.getInstance()
+            textSize = 15f
+            setLineSpacing(4f, 1.1f)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.about_title)
+            .setView(tv)
+            .setPositiveButton(R.string.about_ok, null)
             .show()
     }
 
@@ -272,18 +364,57 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val pluginMenuIds = mutableMapOf<Int, PluginManager.PluginInfo>()
+
     override fun onCreateOptionsMenu(menu: android.view.Menu): Boolean {
         menuInflater.inflate(R.menu.top_menu, menu)
+        // 动态挂载声明了 on_menu 触发器的已启用插件（先清理残留插件项，避免重复）
+        val toRemove = mutableListOf<Int>()
+        for (i in 0 until menu.size()) {
+            val item = menu.getItem(i)
+            if (item.itemId >= 10000) toRemove.add(item.itemId)
+        }
+        toRemove.forEach { menu.removeItem(it) }
+        pluginMenuIds.clear()
+        var id = 10000
+        PluginEngine.menuPlugins().forEach { info ->
+            pluginMenuIds[id] = info
+            menu.add(android.view.Menu.NONE, id, android.view.Menu.NONE, "插件：${info.name}")
+            id++
+        }
         return true
     }
 
     override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean {
-        return when (item.itemId) {
+        return if (handleMenuItem(item.itemId)) true else super.onOptionsItemSelected(item)
+    }
+
+    /** 统一处理菜单项点击（option menu 与右上角弹出菜单共用） */
+    private fun handleMenuItem(itemId: Int): Boolean {
+        return when (itemId) {
             R.id.action_csv -> { exportCsv(); true }
             R.id.action_json -> { exportJson(); true }
             R.id.action_batch_copy -> { batchCopy(); true }
             R.id.action_select_all -> { adapter.toggleSelectAll(); true }
-            else -> super.onOptionsItemSelected(item)
+            R.id.action_plugins -> { startActivity(Intent(this, PluginsActivity::class.java)); true }
+            R.id.action_about -> { showAbout(); true }
+            in pluginMenuIds -> { PluginEngine.runMenuPlugin(pluginMenuIds[itemId]!!); true }
+            else -> false
         }
+    }
+
+    /** 右上角菜单按钮：用 PopupMenu 弹出所有功能（不依赖系统 overflow 图标，规避 MIUI 隐藏问题） */
+    private fun showPopupMenu() {
+        val pm = PopupMenu(this, binding.btnMenu)
+        pm.menuInflater.inflate(R.menu.top_menu, pm.menu)
+        // 动态挂载声明了 on_menu 触发器的已启用插件
+        var id = 10000
+        PluginEngine.menuPlugins().forEach { info ->
+            pluginMenuIds[id] = info
+            pm.menu.add(android.view.Menu.NONE, id, android.view.Menu.NONE, "插件：${info.name}")
+            id++
+        }
+        pm.setOnMenuItemClickListener { item -> handleMenuItem(item.itemId) }
+        pm.show()
     }
 }

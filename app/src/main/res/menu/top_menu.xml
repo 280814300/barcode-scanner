@@ -17,4 +17,12 @@
         android:id="@+id/action_json"
         android:title="@string/export_json"
         app:showAsAction="never" />
+    <item
+        android:id="@+id/action_plugins"
+        android:title="@string/plugins"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_about"
+        android:title="@string/about_title"
+        app:showAsAction="never" />
 </menu>

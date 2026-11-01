@@ -2,7 +2,7 @@
 
 > 记录「条码扫描」App 从网页原型到原生签名发布的完整演进。所有阶段均坚持一条红线：**数据本地处理、不外发**。
 
-> **作者**：文学酒铺 ｜ **网站**：[wenxuejiupu.com](https://wenxuejiupu.com)
+> **作者**：毛栋梁 ｜ **网站**：[wenxuejiupu.com](https://wenxuejiupu.com)
 
 ---
 
@@ -111,3 +111,57 @@
   - `app/build.gradle`：`versionCode 2` / `versionName "1.01"`，release 输出自动为 `barcodescanner-v1.01.apk`。
 - 重新编译 `assembleRelease`，产物 `barcodescanner-v1.01.apk`。
 - 隐私红线不变：仍仅 `CAMERA` 权限、零网络、数据不出本机。
+
+## 阶段 10 · v1.02 插件化框架 + 关于软件
+- 需求：以现有界面为架构，做可扩展的插件框架，允许第三方插件导入使用；示例含「69码商品识别（自动录入产品库）」「批量盘点」；并新增右上角「关于软件」弹窗。
+- 插件机制选型：**LuaJ 纯 Java 脚本沙箱**（离线运行第三方 `.bsplugin` = zip 内含 `bsmanifest.json` + `main.lua` + `data/`），不引入任何网络/JS 引擎依赖。
+- 沙箱安全：剥离 `os/io/package/require/load/dofile/loadstring/luajava/debug` 等危险全局，宿主 API 走**白名单桥**（`host.records/product/ui/export/storage/json`），守住「完全离线、禁联网/文件系统/反射」红线。
+- 插件中心 `PluginsActivity`：导入（SAF 选 `.bsplugin` / 接收其他应用分享的 VIEW intent）、启用/禁用开关、卸载（带确认）；注册表 `filesDir/plugins.json`，插件目录 `filesDir/plugins/<id>/`，按 pluginId 隔离私有存储。
+- 扩展点：`on_scan` / `on_menu` / `on_record_longclick` 三类触发器；`MainActivity` 在扫码回调、`onCreateOptionsMenu` 动态挂载 `on_menu` 插件项、`BarcodeAdapter` 长按转发。
+- 两个官方示例插件：`barcode69`（识别 690-699 前缀 EAN-13，未收录则弹窗录入名称/规格/单位/单价写入产品库）、`stocktake`（菜单开关盘点模式、逐件 +1、长按 -1、结束导出实盘 CSV）。打包脚本 `plugins/package_plugins.py` 产出 `plugins_dist/*.bsplugin` + 静态分发页 `index.html`。
+- 关于软件：`top_menu.xml` 新增 `action_about`；`MainActivity.showAbout()` 用 `HtmlCompat` + `LinkMovementMethod` 渲染弹窗，显示软件版本（`BuildConfig.VERSION_NAME`）、作者「毛栋梁」、可点击跳转的网站链接、软件简介（快速扫码/批量识别/自动采集/可复制导出打印/本地无需联网）、开源声明。因 AGP 8+ 默认关闭 BuildConfig，已在 `app/build.gradle` 开启 `buildFeatures { buildConfig true }`。
+- `BarcodeRecord` 增加 `extras: JSONObject?` 字段（`toJson`/`fromJson` 向后兼容旧数据），供插件挂载自定义数据。
+- 重新编译 `assembleRelease`，产物 `barcodescanner-v1.02.apk`（约 5.3 MB，仍仅 `CAMERA` 权限、零网络）。
+- 截图说明：主界面/编辑/批量三张高保真预览图沿用 v1.02 渲染；插件中心预览图因本地无头浏览器（Chromium 下载受限）暂以文字说明替代，后续可补。
+
+## 阶段 11 · v1.03 外接扫码枪插件（手机作为电脑外接扫码枪）
+- 需求：以**独立可导入插件**形式封装「外接扫码枪」，导入即启用；连接电脑（局域网）后将手机作为电脑的外接扫码枪，扫码数据实时传输到电脑端；插件须包含连接管理、扫码监听与数据上报逻辑，且不影响宿主原有功能。
+- 关键架构决策：现有 Lua 沙箱**禁止联网**，所以插件本身不能直接开 Socket。改为由宿主原生提供**受权限管控的 `host.scangun` 桥**，插件（Lua）只做编排，真正的局域网通信在宿主侧完成，且**只有声明 `network` 权限的插件才能调用**——其他插件与其他功能依旧零网络，离线红线不破。
+- 宿主侧改动：
+  - `AndroidManifest.xml`：新增 `INTERNET` 权限（仅被声明 `network` 的插件经宿主桥间接使用）。
+  - `PluginManifest.kt`：`HOST_VERSION` 升 `1.03`；新增 `PERM_NETWORK = "network"` 常量（`versionAtLeast` 校验方向为 `HOST_VERSION >= minHostVersion`，故旧示例插件 minHostVersion=1.02 仍兼容）。
+  - `PluginEngine.kt`：新增 `activePermissions` 字段，在 `runPlugin` 执行前注入当前插件权限、执行后清空，供 host 桥做能力管控。
+  - 新增 `ScanGunBridge.kt`（单例）：原生 TCP 客户端，全部 Socket 操作用在单线程 executor 上执行（避免 `on_scan` 主线程调用触发 `NetworkOnMainThreadException`）；状态机 `disconnected/connecting/connected/error`；`send()` 仅入队返回是否成功，不阻塞。连接为单例，跨插件调用复用（菜单 connect、扫码 send）。
+  - `PluginHost.kt`：新增 `host.scangun` 子表（`configure/connect/disconnect/status/lastError/send`），仅在 `activePermissions` 含 `network` 时暴露真实实现；否则所有方法返回「权限不足」，绝不联网。
+- 插件 `plugins/scangun/`：`plugin.bsmanifest.json`（`triggers: on_menu/on_scan`，`permissions: ["network"]`，`minHostVersion: 1.03`）+ `main.lua`——`on_menu` 负责连接管理（读取已存 IP/端口、弹表单配置、connect/disconnect、toast 状态），`on_scan` 在已连接时把 `{v,f,t}` 的 JSON 单行经 `host.scangun.send` 上报，未连接时不拦截宿主原有扫码流程。连接管理与上报逻辑全在插件内，宿主仅提供受控网络通道。
+- 电脑端接收器 `scangun_receiver.py`（工作区根目录）：纯标准库 TCP 服务（默认端口 17533），接收每行 JSON 扫码数据、终端实时打印并追加写入 `scans.csv`；绑定 `0.0.0.0` 局域网、数据不出本机，Ctrl+C 即停。
+- 重新打包 `plugins/package_plugins.py`：新增产出 `scangun.bsplugin`（连同 `barcode69`/`stocktake` 一并重打）。
+- 文档：`PLUGIN_GUIDE.md` 增加 `host.scangun` API 与 `network` 权限说明、§6.3 外接扫码枪示例；`README.md` 与版本说明同步到 v1.03，并如实说明 `INTERNET` 权限仅被该插件使用；本文件新增本阶段。
+- 重新编译 `assembleRelease`，产物 `barcodescanner-v1.03.apk`（versionCode 4 / versionName 1.03）。
+- 注意：本版本起安装包权限清单含 `INTERNET`，但仅在用户主动安装并启用「外接扫码枪」插件后才会发生局域网通信；基础扫码/69码/盘点功能及数据仍完全本地、零网络。
+
+## 阶段 12 · 电脑端二维码一键连接（免手动输入地址）
+- 需求：电脑端运行一条命令/脚本后，自动生成可被扫描的二维码；手机或其他设备扫描该二维码即自动完成连接，无需手动输入 IP 或端口。
+- 电脑端 `scangun_receiver.py` 升级：
+  - 启动时生成随机配对令牌（`secrets.token_urlsafe(6)`），构造连接串 `scangun://<LAN IP>:<端口>?t=<令牌>&v=1`。
+  - 自动渲染二维码：优先终端 ASCII（`qrcode.print_ascii`，全环境可用），并额外生成 `scangun_qr.png`（box_size=10, ERROR_CORRECT_M）后尝试用系统默认图片查看器自动打开（Windows `os.startfile` / macOS `open` / Linux `xdg-open`）；缺 `qrcode` 库时自动 `pip install qrcode pillow`，仍失败则回退为纯文本打印连接串。
+  - 新增**令牌握手**：设备接入后首行若为 `AUTH <令牌>` 则校验，匹配才放行（防局域网内误连/冒领）；首行非 `AUTH` 则按旧式「无令牌直连」向后兼容。
+- 手机端插件 `plugins/scangun/main.lua`（升 v1.1.0）：
+  - `on_scan` 识别 `scangun://` 前缀 → 解析 host/port/token → 调 `host.scangun.configure` + `host.scangun.connect(token)` 自动连接，并 `host.remove(value)` 把该连接串从主列表清除（不污染、不转发）。
+  - 保留 `on_menu` 手动输入 IP 的备用入口（无令牌）。
+- 宿主桥 `ScanGunBridge.kt`：`connect(token="")` 新增可选令牌参数，连接建立后若令牌非空立即发送 `AUTH <令牌>` 首行。`PluginHost.kt` 的 `host.scangun.connect` 改为 `OneArgFunction`，把可选令牌传给桥。
+- 自测：本机起服务 + 模拟客户端（令牌模式 + 旧式无令牌直连）端到端验证，三行数据均正确写入 `scans.csv`，令牌不匹配即拒绝——`RESULT: PASS`。
+- 重新打包 `plugins/package_plugins.py`：`scangun.bsplugin`（manifest version 1.1.0）；重新编译 `assembleRelease`，产物仍为 `barcodescanner-v1.03.apk`（versionName 不变）。
+- 文档：`PLUGIN_GUIDE.md` 的 `host.scangun.connect(token?)` 与 §6.3、`README.md` 外接扫码枪条目均补充二维码一键连接说明；本文件新增本阶段。
+
+## 阶段 13 · 外接扫码枪插件内置进 APK（可开关）
+- 需求：将 `scangun.bsplugin` 直接内置进安装包，首次启动自动装好，用户可在插件中心自行启用/禁用（亦可卸载），无需再从外部导入。
+- 资源：把打包好的 `plugins_dist/scangun.bsplugin` 拷入 `app/src/main/assets/bundled_plugins/scangun.bsplugin`；Android 构建自动将其打进 APK 的 `assets/` 目录（已验证 APK 内存在 `assets/bundled_plugins/scangun.bsplugin`）。
+- `PluginManager.kt` 改造：
+  - `PluginInfo` 增加 `bundled: Boolean` 字段（持久化于 `plugins.json`，默认 false）。
+  - 新增 `installBundledFromAssets()`：在 `init()` 中调用，读取 `assets/bundled_plugins/*.bsplugin`，逐个解析 manifest 取 id；用 `bundled_seen.json` 记录已处理过的 id——若用户已自行导入同名插件则仅记录不再覆盖，**若用户卸载了内置插件也不会被重新塞回**（尊重用户选择）；全新安装则自动装入并标记 `bundled=true`、默认启用。
+  - 配套 `peekManifestId()`（不消耗安装流，只读 manifest 取 id）、`bundledSeenFile/loadBundledSeen/saveBundledSeen` 帮助函数、`setBundled()`。
+  - 注意：`when (val res = installFromStream(stream))` 的「when 内 val 声明」写法在本项目 Kotlin 1.9.24 下触发解析异常，已改为先 `val res = installFromStream(stream)` 再 `when(res)`，编译通过。
+- `PluginsActivity.kt`：插件列表中为内置插件追加「内置」标记（`author · 已启用/已禁用 · 内置`）。
+- 重新编译 `assembleRelease`，产物仍为 `barcodescanner-v1.03.apk`（versionName 不变）；APK 内已含内置插件。
+- 隐私：内置的「外接扫码枪」仍是唯一会联网的功能，且需用户主动启用；基础功能（含其余示例插件）依旧零网络、数据不出本机。

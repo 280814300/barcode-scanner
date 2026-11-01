@@ -11,7 +11,8 @@ class BarcodeAdapter(
     private val records: MutableList<BarcodeRecord>,
     private val onCopy: (BarcodeRecord) -> Unit,
     private val onDelete: (BarcodeRecord) -> Unit,
-    private val onEdit: (BarcodeRecord) -> Unit
+    private val onEdit: (BarcodeRecord) -> Unit,
+    private val onLongClick: (BarcodeRecord) -> Unit
 ) : RecyclerView.Adapter<BarcodeAdapter.VH>() {
 
     // view = 当前筛选后的展示列表；records 为全量列表（与 MainActivity 同一引用）
@@ -42,6 +43,8 @@ class BarcodeAdapter(
         holder.b.rowContent.setOnClickListener { onEdit(r) }
         holder.b.btnCopy.setOnClickListener { onCopy(r) }
         holder.b.btnDelete.setOnClickListener { onDelete(r) }
+        // 长按整行：触发插件的 on_record_longclick（如快速盘点 +1）
+        holder.b.root.setOnLongClickListener { onLongClick(r); true }
     }
 
     private fun buildMeta(r: BarcodeRecord): String {

@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>条码扫描 截图</title>
+<style>
+  :root{
+    --seed:#0ea5a4; --seed-dark:#0b8584; --bg:#f3f5f8;
+    --surface:#ffffff; --on-surface:#1c1b1f; --outline:#74777f;
+    --outline-border:#c9cdd4; --tonal:#d7f0ef;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-font-smoothing:antialiased;}
+  body{
+    font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;
+    background:#dfe3e8; display:flex; gap:40px; padding:40px; flex-wrap:wrap;
+  }
+  .phone{
+    width:390px; background:var(--bg); border-radius:32px; overflow:hidden;
+    box-shadow:0 18px 50px rgba(0,0,0,.25); position:relative;
+    border:10px solid #1c1d22;
+  }
+  .statusbar{
+    height:30px; background:var(--seed); display:flex; align-items:center;
+    justify-content:space-between; padding:0 18px; color:#fff; font-size:12px;
+  }
+  .toolbar{
+    height:56px; background:var(--seed); display:flex; align-items:center;
+    justify-content:space-between; padding:0 8px 0 16px; color:#fff;
+  }
+  .toolbar .title{font-size:19px; font-weight:600; letter-spacing:.5px;}
+  .toolbar .menu{font-size:24px; padding:6px 12px;}
+  /* camera —— v1.01：取景框区域缩小，与列表区按黄金分割分配（较小部分） */
+  .camera{
+    height:150px; background:linear-gradient(160deg,#16302f,#0c1b1b);
+    position:relative; display:flex; align-items:center; justify-content:center;
+  }
+  .camera .hint{color:rgba(255,255,255,.7); font-size:12px;}
+  .reticle{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:160px; height:84px;}
+  .reticle span{position:absolute; width:22px; height:22px; border:3px solid var(--seed);}
+  .reticle .tl{top:0; left:0; border-right:none; border-bottom:none;}
+  .reticle .tr{top:0; right:0; border-left:none; border-bottom:none;}
+  .reticle .bl{bottom:0; left:0; border-right:none; border-top:none;}
+  .reticle .br{bottom:0; right:0; border-left:none; border-top:none;}
+  .scanline{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:160px; height:2px; background:var(--seed);
+    box-shadow:0 0 12px 2px rgba(14,165,164,.8);}
+  /* button row */
+  .btnrow{display:flex; gap:8px; padding:10px 12px;}
+  .mbtn{
+    flex:1; border:1.5px solid var(--seed); color:var(--seed); background:#fff;
+    border-radius:22px; padding:9px 0; font-size:14px; font-weight:500; text-align:center;
+  }
+  /* filter */
+  .filter{
+    margin:0 12px 6px; border:1px solid var(--outline-border); border-radius:10px;
+    background:#fff; padding:11px 14px; color:var(--outline); font-size:14px;
+  }
+  /* list —— v1.01：整行按比例缩小 */
+  .list{padding:4px 12px 16px;}
+  .card{
+    background:var(--surface); border-radius:12px; padding:8px; margin-bottom:8px;
+    display:flex; align-items:center; box-shadow:0 1px 3px rgba(0,0,0,.06);
+  }
+  .card.checked{outline:2px solid var(--seed);}
+  .cb{
+    width:18px; height:18px; border:2px solid var(--outline-border); border-radius:5px;
+    margin-right:8px; flex:0 0 auto; position:relative;
+  }
+  .card.checked .cb{background:var(--seed); border-color:var(--seed);}
+  .card.checked .cb::after{content:""; position:absolute; left:5px; top:1px; width:5px;
+    height:9px; border:solid #fff; border-width:0 2.5px 2.5px 0; transform:rotate(45deg);}
+  .rowcontent{flex:1; min-width:0; padding-right:8px;}
+  .val{font-size:14px; font-weight:700; color:var(--on-surface); word-break:break-all;}
+  .meta{font-size:11px; color:var(--outline); margin-top:2px;}
+  .copy{background:var(--tonal); color:var(--seed-dark); border:none; border-radius:16px;
+    padding:5px 11px; font-size:12px; font-weight:600; flex:0 0 auto;}
+  /* delete —— v1.01：缩小为小号删除图标按钮 */
+  .del{background:#fdecea; color:#b3261e; border:1px solid #f3c6c2; border-radius:8px;
+    width:32px; height:32px; padding:0; margin-left:6px; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;}
+  .actions{display:flex; align-items:center;}
+  /* dialog overlay */
+  .overlay{position:absolute; inset:0; background:rgba(0,0,0,.45); display:flex;
+    align-items:center; justify-content:center; padding:24px;}
+  .dialog{background:#fff; border-radius:18px; width:100%; padding:20px;}
+  .dialog h3{font-size:18px; margin-bottom:16px; color:var(--on-surface);}
+  .editbox{border:1.5px solid var(--seed); border-radius:10px; padding:11px 12px;
+    font-size:15px; color:var(--on-surface); word-break:break-all;}
+  .dialogbtns{display:flex; justify-content:flex-end; gap:8px; margin-top:18px;}
+  .neg{background:none; border:none; color:var(--seed-dark); font-weight:600; padding:9px 14px; font-size:14px;}
+  .pos{background:var(--seed); border:none; color:#fff; border-radius:20px; padding:9px 20px; font-weight:600; font-size:14px;}
+  /* menu popup */
+  .popup{position:absolute; top:80px; right:14px; background:#fff; border-radius:10px;
+    box-shadow:0 6px 24px rgba(0,0,0,.22); min-width:160px; overflow:hidden; z-index:5;}
+  .popup div{padding:13px 18px; font-size:14px; color:var(--on-surface); border-bottom:1px solid #eee;}
+  .popup div:last-child{border-bottom:none;}
+  /* plugin center */
+  .pc-import{margin:12px; border:1.5px solid var(--seed); color:var(--seed); border-radius:22px;
+    text-align:center; padding:10px; font-size:14px; font-weight:600; background:#fff;}
+  .pc-list{padding:0 12px 16px;}
+  .pc-card{background:#fff; border-radius:12px; padding:10px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,.06);}
+  .pc-name{font-size:15px; font-weight:700; color:var(--on-surface);}
+  .pc-meta{font-size:11px; color:var(--outline); margin-top:2px;}
+  .pc-desc{font-size:12px; color:var(--outline); margin-top:4px; line-height:1.4;}
+  .pc-foot{display:flex; align-items:center; justify-content:space-between; margin-top:8px;}
+  .pc-sw{width:40px; height:22px; border-radius:12px; background:var(--seed); position:relative;}
+  .pc-sw::after{content:""; position:absolute; right:2px; top:2px; width:18px; height:18px; border-radius:50%; background:#fff;}
+  .pc-uninstall{background:var(--tonal); color:var(--seed-dark); border:none; border-radius:16px; padding:5px 12px; font-size:12px; font-weight:600;}
+</style>
+</head>
+<body>
+
+<!-- ===== Screen 1: 主界面（列表） ===== -->
+<div class="phone" id="screen-main">
+  <div class="statusbar"><span>9:41</span><span>条码扫描</span></div>
+  <div class="toolbar"><span class="title">条码扫描</span><span class="menu">⋮</span></div>
+  <div class="camera">
+    <div class="reticle">
+      <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+    </div>
+    <div class="scanline"></div>
+    <div class="hint">将条码置于取景框内</div>
+  </div>
+  <div class="btnrow">
+    <div class="mbtn" style="border-color:#0b8584;background:#0b8584;color:#fff;">暂停扫描</div>
+    <div class="mbtn">闪光灯</div>
+    <div class="mbtn">清空</div>
+  </div>
+  <div class="filter">筛选条码 / 格式</div>
+  <div class="list">
+    <div class="card">
+      <div class="cb"></div>
+      <div class="rowcontent">
+        <div class="val">6901234567890</div>
+        <div class="meta">EAN_13 · 2026-10-17 09:12:33</div>
+      </div>
+      <div class="actions"><button class="copy">复制</button><button class="del" title="删除"><svg width="17" height="17" viewBox="0 0 24 24" fill="#b3261e"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button></div>
+    </div>
+    <div class="card">
+      <div class="cb"></div>
+      <div class="rowcontent">
+        <div class="val">SN:XM2026ABC123</div>
+        <div class="meta">CODE_128 · 2026-10-17 09:13:05</div>
+      </div>
+      <div class="actions"><button class="copy">复制</button><button class="del" title="删除"><svg width="17" height="17" viewBox="0 0 24 24" fill="#b3261e"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button></div>
+    </div>
+    <div class="card">
+      <div class="cb"></div>
+      <div class="rowcontent">
+        <div class="val">IMEI:861234567890123</div>
+        <div class="meta">CODE_128 · 2026-10-17 09:15:48</div>
+      </div>
+      <div class="actions"><button class="copy">复制</button><button class="del" title="删除"><svg width="17" height="17" viewBox="0 0 24 24" fill="#b3261e"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button></div>
+    </div>
+    <div class="card">
+      <div class="cb"></div>
+      <div class="rowcontent">
+        <div class="val">https://www.mi.com</div>
+        <div class="meta">QR_CODE · 2026-10-17 09:20:10</div>
+      </div>
+      <div class="actions"><button class="copy">复制</button><button class="del" title="删除"><svg width="17" height="17" viewBox="0 0 24 24" fill="#b3261e"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Screen 2: 编辑条码对话框 ===== -->
+<div class="phone" id="screen-edit">
+  <div class="statusbar"><span>9:41</span><span>条码扫描</span></div>
+  <div class="toolbar"><span class="title">条码扫描</span><span class="menu">⋮</span></div>
+  <div class="camera">
+    <div class="reticle">
+      <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+    </div>
+    <div class="hint">将条码置于取景框内</div>
+  </div>
+  <div class="btnrow">
+    <div class="mbtn" style="border-color:#0b8584;background:#0b8584;color:#fff;">暂停扫描</div>
+    <div class="mbtn">闪光灯</div>
+    <div class="mbtn">清空</div>
+  </div>
+  <div class="filter">筛选条码 / 格式</div>
+  <div class="list">
+    <div class="card">
+      <div class="cb"></div>
+      <div class="rowcontent">
+        <div class="val">6901234567890</div>
+        <div class="meta">EAN_13 · 2026-10-17 09:12:33</div>
+      </div>
+      <div class="actions"><button class="copy">复制</button><button class="del" title="删除"><svg width="17" height="17" viewBox="0 0 24 24" fill="#b3261e"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button></div>
+    </div>
+    <div class="card">
+      <div class="cb"></div>
+      <div class="rowcontent">
+        <div class="val">SN:XM2026ABC123</div>
+        <div class="meta">CODE_128 · 2026-10-17 09:13:05</div>
+      </div>
+      <div class="actions"><button class="copy">复制</button><button class="del" title="删除"><svg width="17" height="17" viewBox="0 0 24 24" fill="#b3261e"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button></div>
+    </div>
+  </div>
+  <!-- edit dialog -->
+  <div class="overlay">
+    <div class="dialog">
+      <h3>编辑条码</h3>
+      <div class="editbox">SN:XM2026ABC123</div>
+      <div class="dialogbtns">
+        <button class="neg">取消</button>
+        <button class="pos">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Screen 3: 批量勾选 + 菜单 ===== -->
+<div class="phone" id="screen-batch">
+  <div class="statusbar"><span>9:41</span><span>条码扫描</span></div>
+  <div class="toolbar"><span class="title">条码扫描</span><span class="menu">⋮</span></div>
+  <div class="camera">
+    <div class="reticle">
+      <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+    </div>
+    <div class="hint">将条码置于取景框内</div>
+  </div>
+  <div class="btnrow">
+    <div class="mbtn" style="border-color:#0b8584;background:#0b8584;color:#fff;">暂停扫描</div>
+    <div class="mbtn">闪光灯</div>
+    <div class="mbtn">清空</div>
+  </div>
+  <div class="filter">已选 3 项</div>
+  <div class="list">
+    <div class="card checked">
+      <div class="cb"></div>
+      <div class="rowcontent">
+        <div class="val">6901234567890</div>
+        <div class="meta">EAN_13 · 2026-10-17 09:12:33</div>
+      </div>
+      <div class="actions"><button class="copy">复制</button><button class="del" title="删除"><svg width="17" height="17" viewBox="0 0 24 24" fill="#b3261e"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button></div>
+    </div>
+    <div class="card checked">
+      <div class="cb"></div>
+      <div class="rowcontent">
+        <div class="val">SN:XM2026ABC123</div>
+        <div class="meta">CODE_128 · 2026-10-17 09:13:05</div>
+      </div>
+      <div class="actions"><button class="copy">复制</button><button class="del" title="删除"><svg width="17" height="17" viewBox="0 0 24 24" fill="#b3261e"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button></div>
+    </div>
+    <div class="card checked">
+      <div class="cb"></div>
+      <div class="rowcontent">
+        <div class="val">IMEI:861234567890123</div>
+        <div class="meta">CODE_128 · 2026-10-17 09:15:48</div>
+      </div>
+      <div class="actions"><button class="copy">复制</button><button class="del" title="删除"><svg width="17" height="17" viewBox="0 0 24 24" fill="#b3261e"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button></div>
+    </div>
+  </div>
+  <!-- overflow menu -->
+  <div class="popup">
+    <div>全选 / 取消</div>
+    <div>批量复制</div>
+    <div>导出 CSV</div>
+    <div>导出 JSON</div>
+    <div>插件</div>
+  </div>
+</div>
+
+<!-- ===== Screen 4: 插件中心 ===== -->
+<div class="phone" id="screen-plugins">
+  <div class="statusbar"><span>9:41</span><span>插件中心</span></div>
+  <div class="toolbar"><span class="title">插件中心</span><span class="menu">←</span></div>
+  <div class="pc-import">导入插件</div>
+  <div class="pc-list">
+    <div class="pc-card">
+      <div class="pc-name">69码商品识别 v1.0.0</div>
+      <div class="pc-meta">毛栋梁 · 已启用</div>
+      <div class="pc-desc">识别 690-699 开头的 EAN-13 商品条码，自动查本地产品库；未收录则弹窗录入名称/规格/单位/单价并写入产品库。</div>
+      <div class="pc-foot"><div class="pc-sw"></div><button class="pc-uninstall">卸载</button></div>
+    </div>
+    <div class="pc-card">
+      <div class="pc-name">批量盘点 v1.0.0</div>
+      <div class="pc-meta">毛栋梁 · 已启用</div>
+      <div class="pc-desc">点菜单开始盘点后逐件扫描自动计数(+1)，长按记录可减1纠错；再次点菜单结束并导出实盘 CSV。</div>
+      <div class="pc-foot"><div class="pc-sw"></div><button class="pc-uninstall">卸载</button></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -24,4 +24,24 @@
     <string name="select_all">全选 / 取消</string>
     <string name="copied_count">已复制 %1$d 条条码</string>
     <string name="exported_count">已导出 %1$d 条条码</string>
+    <!-- 插件 -->
+    <string name="plugins">插件</string>
+    <string name="plugins_title">插件中心</string>
+    <string name="import_plugin">导入插件</string>
+    <string name="no_plugin_hint">还没有安装插件。点击「导入插件」选择 .bsplugin 文件，或从其他应用分享 .bsplugin 到本应用。</string>
+    <string name="plugin_enabled">已启用</string>
+    <string name="plugin_disabled">已禁用</string>
+    <string name="uninstall">卸载</string>
+    <string name="import_desc">选择插件包（.bsplugin / .zip）</string>
+    <string name="plugin_imported">已安装插件：%1$s</string>
+    <string name="plugin_import_fail">安装失败：%1$s</string>
+    <string name="confirm_uninstall">确定卸载插件「%1$s」？</string>
+    <!-- 关于软件 -->
+    <string name="about_title">关于软件</string>
+    <string name="about_author">毛栋梁</string>
+    <string name="about_website">https://wenxuejiupu.com</string>
+    <string name="about_intro">快速扫码，条码批量识别扫描，自动采集记录，可复制导出打印，本地识别无需联网。</string>
+    <string name="about_oss">开源声明：本软件以开源方式发布，欢迎在遵守开源协议的前提下自由使用、学习与二次开发。</string>
+    <string name="about_ok">知道了</string>
+    <string name="menu_button">菜单</string>
 </resources>
