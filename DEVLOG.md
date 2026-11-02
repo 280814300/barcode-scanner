@@ -165,3 +165,16 @@
 - `PluginsActivity.kt`：插件列表中为内置插件追加「内置」标记（`author · 已启用/已禁用 · 内置`）。
 - 重新编译 `assembleRelease`，产物仍为 `barcodescanner-v1.03.apk`（versionName 不变）；APK 内已含内置插件。
 - 隐私：内置的「外接扫码枪」仍是唯一会联网的功能，且需用户主动启用；基础功能（含其余示例插件）依旧零网络、数据不出本机。
+
+## 阶段 14 · 菜单统一 + 插件面板 + 电脑端实时界面（v1.04）
+- 需求（毛哥反馈三件事）：① 加载插件后手机右上角出现两个设置按钮重复；② 外接扫码枪插件需在右上角「设置-插件」面板中支持显示、启用与关闭；③ 电脑端扫描数据须实时同步到界面展示，交互与 APP 端一致，支持复制单条与批量导出。
+- ① 重复按钮根因与修复：`setSupportActionBar` 下 `onCreateOptionsMenu` 会由系统渲染 overflow 三点图标，而布局里又有自定义 `btnMenu` 三点按钮，两套并存。移除 `onCreateOptionsMenu`/`onOptionsItemSelected` 系统路径与 `onResume` 的 `invalidateOptionsMenu()`，统一为唯一的「⋮」按钮 + `PopupMenu`；每次弹菜单重新读取插件状态（`pluginMenuIds.clear()` 后重建），启用项实时出现、禁用即消失。
+- ② 插件面板：新增 `dialog_plugin_panel.xml` + `PluginPanel.kt`，菜单「插件」项改为弹出面板（不再跳整页），列出全部插件（含内置外接扫码枪，带「内置」标记），每项 Switch 即时启用/关闭；底部入口跳插件中心（导入/卸载）。`PluginsActivity.PluginListAdapter.onBindViewHolder` 修复 RecyclerView 复用隐患：先 `setOnCheckedChangeListener(null)` 再回填状态再挂监听。`PluginManager.setEnabled` 关闭 scangun 时顺手 `ScanGunBridge.disconnect()`，插件停用后长连接不留着。
+- ③ 电脑端实时界面（`scangun_receiver.py` 大改）：
+  - 原有能力全保留：局域网 TCP（默认 17533）、随机令牌 + `AUTH` 握手、二维码（终端 ASCII + PNG）、`scans.csv` 留档、旧式无令牌手动连接兼容。
+  - 新增本地界面服务：标准库 `ThreadingHTTPServer`，只绑 `127.0.0.1`（默认 17534），`GET /` 返回内嵌单文件 HTML，`GET /api/scans?since=N` 增量 JSON，`GET /api/qr.png` 返回连接二维码，`POST /api/clear` 清空界面列表（CSV 保留）。
+  - 界面交互与 APP 端对齐：最新一条在最上；单条「复制」；勾选 + 全选 + 「批量复制」（勾选优先，未勾选复制全部可见项）；「导出 CSV / JSON」（勾选优先，CSV 带 BOM）；关键字筛选（条码/格式，筛选变更清空选择）；清空（带确认）。新数据绿色高亮渐隐，统计条展示 总计/已选/在线设备/最近一条。
+  - 细节：前端 700ms 增量轮询 + 单调递增 id（清空后不回退）；启动时载入 `scans.csv` 最近 500 条作为历史；启动自动打开浏览器（`--no-browser` 可关）；界面仅本机可访问，符合数据不出本机红线。
+  - 配对令牌打印改为独立成行，避免复制时带出说明文字。
+  - 自测：端到端脚本 17 项全 PASS（JSON/裸文本接收、设备计数、界面 HTML、二维码 PNG、清空后继续接收且 id 不回退、CSV 行数与内容）；Chromium 无头截图验证桌面 1360px 与窄屏 520px 布局均无溢出（430px 截图曾现"截断"，经注入诊断确认是 Chrome headless 最小窗口宽 488px 的裁切假象，页面 `scrollWidth == innerWidth` 零溢出；顺手把 grid `1fr` 全部改为 `minmax(0,1fr)` 做防御）。
+- 版本：`versionCode 5` / `versionName 1.04`，产物 `barcodescanner-v1.04.apk`（含内置插件资产）。

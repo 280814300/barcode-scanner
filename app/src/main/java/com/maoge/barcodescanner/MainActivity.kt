@@ -25,7 +25,6 @@ import com.maoge.barcodescanner.databinding.ActivityMainBinding
 import org.json.JSONArray
 import java.io.File
 import android.text.InputType
-import android.view.Menu
 import android.widget.LinearLayout
 import com.maoge.barcodescanner.plugin.PluginEngine
 import com.maoge.barcodescanner.plugin.PluginManager
@@ -119,8 +118,9 @@ class MainActivity : AppCompatActivity(), PluginEngine.HostUi {
     override fun onResume() {
         super.onResume()
         if (scanning) binding.barcodeView.resume()
-        // 从「插件中心」导入/启用/禁用插件返回后，刷新右上角菜单（重建以挂载/卸载插件项）
-        invalidateOptionsMenu()
+        // 说明：本应用只保留一套菜单（右上角显式按钮 + PopupMenu）。
+        // 每次点开时重新读取插件状态，无需再走系统 options menu 的 invalidate 刷新，
+        // 也就不会在 MIUI 上出现系统 overflow 图标与本按钮并存的「两个设置按钮」。
     }
 
     override fun onPause() {
@@ -366,48 +366,33 @@ class MainActivity : AppCompatActivity(), PluginEngine.HostUi {
 
     private val pluginMenuIds = mutableMapOf<Int, PluginManager.PluginInfo>()
 
-    override fun onCreateOptionsMenu(menu: android.view.Menu): Boolean {
-        menuInflater.inflate(R.menu.top_menu, menu)
-        // 动态挂载声明了 on_menu 触发器的已启用插件（先清理残留插件项，避免重复）
-        val toRemove = mutableListOf<Int>()
-        for (i in 0 until menu.size()) {
-            val item = menu.getItem(i)
-            if (item.itemId >= 10000) toRemove.add(item.itemId)
-        }
-        toRemove.forEach { menu.removeItem(it) }
-        pluginMenuIds.clear()
-        var id = 10000
-        PluginEngine.menuPlugins().forEach { info ->
-            pluginMenuIds[id] = info
-            menu.add(android.view.Menu.NONE, id, android.view.Menu.NONE, "插件：${info.name}")
-            id++
-        }
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean {
-        return if (handleMenuItem(item.itemId)) true else super.onOptionsItemSelected(item)
-    }
-
-    /** 统一处理菜单项点击（option menu 与右上角弹出菜单共用） */
+    /** 统一处理菜单项点击（全部来自右上角 PopupMenu，不再有系统 overflow 菜单） */
     private fun handleMenuItem(itemId: Int): Boolean {
         return when (itemId) {
             R.id.action_csv -> { exportCsv(); true }
             R.id.action_json -> { exportJson(); true }
             R.id.action_batch_copy -> { batchCopy(); true }
             R.id.action_select_all -> { adapter.toggleSelectAll(); true }
-            R.id.action_plugins -> { startActivity(Intent(this, PluginsActivity::class.java)); true }
+            R.id.action_plugins -> { showPluginPanel(); true }
             R.id.action_about -> { showAbout(); true }
             in pluginMenuIds -> { PluginEngine.runMenuPlugin(pluginMenuIds[itemId]!!); true }
             else -> false
         }
     }
 
-    /** 右上角菜单按钮：用 PopupMenu 弹出所有功能（不依赖系统 overflow 图标，规避 MIUI 隐藏问题） */
+    /** 右上角「设置 - 插件」面板：直接显示 / 启用 / 关闭插件（含随 APK 内置的外接扫码枪） */
+    private fun showPluginPanel() {
+        PluginPanel.show(this) {
+            startActivity(Intent(this, PluginsActivity::class.java))
+        }
+    }
+
+    /** 右上角菜单按钮：用 PopupMenu 弹出所有功能（唯一一套菜单，规避 MIUI 隐藏系统 overflow 的问题） */
     private fun showPopupMenu() {
         val pm = PopupMenu(this, binding.btnMenu)
         pm.menuInflater.inflate(R.menu.top_menu, pm.menu)
-        // 动态挂载声明了 on_menu 触发器的已启用插件
+        // 每次弹出都重新读取插件状态，保证启用的插件项实时出现、禁用后立即消失
+        pluginMenuIds.clear()
         var id = 10000
         PluginEngine.menuPlugins().forEach { info ->
             pluginMenuIds[id] = info

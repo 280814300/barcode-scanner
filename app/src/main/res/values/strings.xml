@@ -36,6 +36,9 @@
     <string name="plugin_imported">已安装插件：%1$s</string>
     <string name="plugin_import_fail">安装失败：%1$s</string>
     <string name="confirm_uninstall">确定卸载插件「%1$s」？</string>
+    <string name="plugin_panel_hint">在此直接启用或关闭插件，关闭后该插件立即停止工作。标注「内置」的插件随安装包自带。</string>
+    <string name="plugin_panel_open_center">打开插件中心（导入 / 卸载）</string>
+    <string name="plugin_panel_close">关闭</string>
     <!-- 关于软件 -->
     <string name="about_title">关于软件</string>
     <string name="about_author">毛栋梁</string>

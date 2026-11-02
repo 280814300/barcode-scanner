@@ -21,6 +21,9 @@ object PluginManager {
     private const val PLUGIN_DIR = "plugins"
     private const val MANIFEST_NAME = "plugin.bsmanifest.json"
 
+    /** 随 APK 内置的外接扫码枪插件 id（宿主内唯一会发起网络通信的插件） */
+    private const val SCANGUN_PLUGIN_ID = "scangun"
+
     private lateinit var ctx: Context
 
     fun init(c: Context) {
@@ -75,6 +78,11 @@ object PluginManager {
         if (idx < 0) return false
         all[idx] = all[idx].copy(enabled = enabled)
         save(all)
+        // 关闭外接扫码枪时顺手断开已建立的网络长连接，避免插件已停用但 Socket 仍在挂着。
+        // 宿主里只有这一个插件会联网，因此此处按 id 判断即可。
+        if (!enabled && id == SCANGUN_PLUGIN_ID) {
+            try { ScanGunBridge.disconnect() } catch (_: Exception) { }
+        }
         return true
     }
 

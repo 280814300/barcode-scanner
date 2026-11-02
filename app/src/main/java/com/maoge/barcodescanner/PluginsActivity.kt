@@ -139,6 +139,8 @@ class PluginsActivity : AppCompatActivity() {
             val bundledTag = if (info.bundled) "  ·  内置" else ""
             holder.b.tvMeta.text = "${info.author}  ·  ${if (info.enabled) "已启用" else "已禁用"}$bundledTag"
             holder.b.tvDesc.text = info.description
+            // 先解绑监听再回填状态：RecyclerView 复用条目时，否则上一项的状态变化会被误算到当前项
+            holder.b.swEnabled.setOnCheckedChangeListener(null)
             holder.b.swEnabled.isChecked = info.enabled
             holder.b.swEnabled.setOnCheckedChangeListener { _, isChecked ->
                 onToggle(info.id, isChecked)
