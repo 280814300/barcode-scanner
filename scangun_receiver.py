@@ -28,6 +28,7 @@ import os
 import sys
 import secrets
 import datetime
+import io
 import threading
 import subprocess
 import webbrowser
@@ -46,6 +47,11 @@ QR_PNG = os.path.join(HERE, "scangun_qr.png")
 
 # 配对令牌（二维码里携带，手机扫到即自动完成鉴权）
 EXPECTED_TOKEN = secrets.token_urlsafe(6)
+
+# 运行期由 main() 填入：当前连接地址、端口、以及所有可选地址
+CURRENT_IP = "127.0.0.1"
+CURRENT_PORT = PORT
+VALID_IPS = []
 
 # ---------------- 内存数据（供界面实时拉取） ----------------
 _scans = []            # [{"id": int, "ts": str, "value": str, "fmt": str}]，按到达顺序
@@ -78,6 +84,7 @@ def make_uri(ip, port, token):
 
 
 def lan_ip():
+    """按默认路由挑一个对外地址（老办法，多网卡时可能挑错）。"""
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
@@ -86,6 +93,67 @@ def lan_ip():
         return ip
     except Exception:
         return "127.0.0.1"
+
+
+def lan_ips(include_apipa=False):
+    """
+    列出本机所有可用于连接的 IPv4 及标注。
+
+    多网卡机器（WiFi / 网线 / 虚拟机 / Tailscale）上，按默认路由挑出来的那一个
+    经常不是手机能连的那个，所以这里全部列出来，让用户在界面上直接换。
+    """
+    out = []
+    try:
+        infos = socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)
+    except Exception:
+        infos = []
+    seen = set()
+    for _fam, _t, _p, _cn, sa in infos:
+        ip = sa[0]
+        if ip in seen:
+            continue
+        seen.add(ip)
+        if ip.startswith("127."):
+            continue
+        tag = ""
+        if ip.startswith("169.254."):
+            # 链路本地地址（APIPA）：手机几乎不可能连上，默认不列
+            if not include_apipa:
+                continue
+            tag = "链路本地（通常不可用）"
+        elif ip.startswith("100."):
+            try:
+                second = int(ip.split(".")[1])
+                if 64 <= second <= 127:
+                    tag = "Tailscale"
+            except Exception:
+                pass
+        out.append((ip, tag))
+    return out
+
+
+def pick_ip():
+    """优先用路由挑出的地址；挑不到或挑到的不在候选里，就退回第一个候选。"""
+    routed = lan_ip()
+    cands = lan_ips()
+    ips = [i for i, _ in cands]
+    if routed in ips:
+        return routed, cands
+    if ips:
+        return ips[0], cands
+    # 极端情况：只有链路本地地址，也列出来让用户自己试
+    fallback = lan_ips(include_apipa=True)
+    return routed, (fallback or [(routed, "")])
+
+
+def self_check(ip, port):
+    """用局域网地址回连自己，确认端口是真的对外可达（防火墙/绑定问题会在这里暴露）。"""
+    try:
+        s = socket.create_connection((ip, port), timeout=3)
+        s.close()
+        return True, ""
+    except Exception as e:
+        return False, str(e)
 
 
 def build_qr(uri):
@@ -104,15 +172,29 @@ def build_qr(uri):
             pass
     except Exception as e:
         print(f"[!] 终端二维码渲染失败（{e}）")
+    png = qr_png_bytes(uri)
+    if png:
+        try:
+            with open(QR_PNG, "wb") as f:
+                f.write(png)
+            print(f"二维码图片：{QR_PNG}")
+        except Exception as e:
+            print(f"[!] 保存二维码图片失败：{e}")
+
+
+def qr_png_bytes(uri):
+    """生成二维码 PNG 字节（界面按 IP 实时切换时复用）。"""
+    if not HAS_QR:
+        return None
     try:
-        qr2 = qrcode.QRCode(box_size=10, border=4, error_correction=qrcode.constants.ERROR_CORRECT_M)
-        qr2.add_data(uri)
-        qr2.make(fit=True)
-        img = qr2.make_image(fill_color="black", back_color="white")
-        img.save(QR_PNG)
-        print(f"二维码图片：{QR_PNG}")
-    except Exception as e:
-        print(f"[!] 生成二维码图片失败：{e}")
+        qr = qrcode.QRCode(box_size=10, border=4, error_correction=qrcode.constants.ERROR_CORRECT_M)
+        qr.add_data(uri)
+        qr.make(fit=True)
+        buf = io.BytesIO()
+        qr.make_image(fill_color="black", back_color="white").save(buf, format="PNG")
+        return buf.getvalue()
+    except Exception:
+        return None
 
 
 def append_csv(ts, val, fmt):
@@ -282,14 +364,26 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/qr.png":
-            if HAS_QR and os.path.exists(QR_PNG):
-                try:
-                    with open(QR_PNG, "rb") as f:
-                        self._send(200, f.read(), "image/png")
-                except Exception:
-                    self._send(500, "qr read error", "text/plain; charset=utf-8")
+            q = parse_qs(u.query)
+            want = (q.get("ip", [""])[0] or CURRENT_IP).strip()
+            allowed = [i for i, _ in VALID_IPS] or [CURRENT_IP]
+            if want not in allowed:
+                want = CURRENT_IP
+            png = qr_png_bytes(make_uri(want, CURRENT_PORT, EXPECTED_TOKEN))
+            if png:
+                self._send(200, png, "image/png")
             else:
                 self._send(404, "no qr", "text/plain; charset=utf-8")
+            return
+
+        if path == "/api/info":
+            payload = {
+                "ip": CURRENT_IP,
+                "port": CURRENT_PORT,
+                "ips": [{"ip": ip, "tag": tag} for ip, tag in VALID_IPS],
+                "hasQr": HAS_QR,
+            }
+            self._send(200, json.dumps(payload, ensure_ascii=False))
             return
 
         self._send(404, "not found", "text/plain; charset=utf-8")
@@ -494,6 +588,15 @@ button.danger:hover{background:rgba(217,119,6,.08);border-color:rgba(217,119,6,.
   box-shadow:0 30px 70px -30px rgba(11,26,43,.65)}
 .modalcard img{width:250px;height:250px;display:block;margin:0 auto 12px;image-rendering:pixelated}
 .modalcard p{margin:0 0 14px;font-size:13px;color:var(--ink2);line-height:1.6}
+.ippick{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:0 0 12px}
+.ipbtn{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;padding:5px 10px;
+  border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,.9);
+  color:var(--ink2);cursor:pointer;transition:background .16s,border-color .16s,color .16s}
+.ipbtn:hover{border-color:var(--cyan);color:var(--ink)}
+.ipbtn.on{background:var(--cyan);border-color:var(--cyan);color:#fff;font-weight:600}
+.qruri{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--ink);
+  word-break:break-all;user-select:all;margin:0 0 10px}
+.qrhint{font-size:12px;color:var(--ink2);line-height:1.7}
 
 @media (max-width:880px){
   .shell{padding:18px 14px 34px}
@@ -545,7 +648,10 @@ button.danger:hover{background:rgba(217,119,6,.08);border-color:rgba(217,119,6,.
 <div class="modal" id="qrModal">
   <div class="modalcard">
     <img id="qrImg" alt="连接二维码">
-    <p>手机端启用「外接扫码枪」后，扫描此二维码即可自动连接</p>
+    <div id="ipPicker" class="ippick"></div>
+    <p id="qrUri" class="qruri"></p>
+    <p class="qrhint">手机端启用「外接扫码枪」后扫描此码即可自动连接。
+      若手机始终连不上，点上方其他 IP 换一个地址再扫；也可用手机「插件 → 扫码枪连接（手动）」手输上面的地址。</p>
     <button onclick="document.getElementById('qrModal').classList.remove('show')">关闭</button>
   </div>
 </div>
@@ -766,11 +872,40 @@ button.danger:hover{background:rgba(217,119,6,.08);border-color:rgba(217,119,6,.
     render();
   });
 
-  // ---- 二维码 ----
-  document.getElementById('btnQr').onclick = function(){
+  // ---- 二维码（支持切换 IP 后即时重生成） ----
+  var curIp = '', curPort = 0;
+  function refreshQr(){
     var img = document.getElementById('qrImg');
-    img.src = '/api/qr.png?t=' + Date.now();
+    if(curIp) img.src = '/api/qr.png?ip=' + encodeURIComponent(curIp) + '&t=' + Date.now();
+    document.getElementById('qrUri').textContent = curIp ? ('scangun://' + curIp + ':' + curPort) : '';
+    var btns = document.querySelectorAll('#ipPicker .ipbtn');
+    for(var i=0;i<btns.length;i++){
+      btns[i].classList.toggle('on', btns[i].getAttribute('data-ip') === curIp);
+    }
+  }
+  function loadIps(){
+    fetch('/api/info', {cache:'no-store'})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        curPort = d.port || 0;
+        var box = document.getElementById('ipPicker');
+        box.innerHTML = '';
+        (d.ips || []).forEach(function(it){
+          var b = document.createElement('button');
+          b.className = 'ipbtn';
+          b.setAttribute('data-ip', it.ip);
+          b.textContent = it.ip + (it.tag ? '（' + it.tag + '）' : '');
+          b.onclick = function(){ curIp = it.ip; refreshQr(); };
+          box.appendChild(b);
+        });
+        if(!curIp) curIp = d.ip || '';
+        refreshQr();
+      })
+      .catch(function(){ /* 接口不可用时沿用默认二维码 */ });
+  }
+  document.getElementById('btnQr').onclick = function(){
     document.getElementById('qrModal').classList.add('show');
+    loadIps();
   };
   document.getElementById('qrModal').addEventListener('click', function(e){
     if(e.target.id === 'qrModal') e.target.classList.remove('show');
@@ -827,6 +962,7 @@ button.danger:hover{background:rgba(217,119,6,.08);border-color:rgba(217,119,6,.
 
 
 def main():
+    global CURRENT_IP, CURRENT_PORT, VALID_IPS
     port = PORT
     web_port = WEB_PORT
     args = sys.argv
@@ -844,7 +980,20 @@ def main():
 
     load_recent_history()
 
-    ip = lan_ip()
+    # 选 IP：多网卡机器上默认路由挑出的地址常常不是手机能连的那个，
+    # 所以这里把所有候选都记下来，界面上可一键切换；也支持 --ip 直接指定。
+    auto_ip, cands = pick_ip()
+    ip = auto_ip
+    if "--ip" in args:
+        try:
+            given = args[args.index("--ip") + 1].strip()
+            if given:
+                ip = given
+                if not any(given == c for c, _ in cands):
+                    cands = cands + [(given, "手动指定")]
+        except Exception:
+            pass
+    CURRENT_IP, CURRENT_PORT, VALID_IPS = ip, port, cands
     uri = make_uri(ip, port, EXPECTED_TOKEN)
 
     if not os.path.exists(CSV):
@@ -854,6 +1003,10 @@ def main():
     print("=" * 62)
     print("外接扫码枪服务端已启动")
     print(f"电脑IP：{ip}    TCP 端口：{port}")
+    if len(cands) > 1:
+        others = "、".join(c for c, _ in cands if c != ip)
+        print(f"其他可选IP：{others}")
+        print("          （手机连不上时，在界面的二维码弹窗里切换 IP，或加参数 --ip 指定）")
     print(f"配对令牌：{EXPECTED_TOKEN}")
     print("          （已写入二维码，手机扫到会自动携带，无需手输）")
     print(f"数据留档：{CSV}")
@@ -881,6 +1034,23 @@ def main():
         print(f"[!] TCP 端口 {port} 绑定失败：{e}\n请换一个端口，例如：python scangun_receiver.py --port 18080")
         return
     srv.listen(5)
+
+    # 启动自检：用局域网地址回连自己，端口被防火墙挡住或绑错时会立刻暴露，
+    # 而不是等到手机怎么扫都连不上才发现。
+    ok, err = self_check(ip, port)
+    if ok and ip.startswith("127."):
+        print("[!] 自检未通过：没找到局域网地址，手机无法连接。")
+        print("    请确认电脑已连上 WiFi/网线（当前只有本机回环地址 127.0.0.1）。")
+    elif ok:
+        print(f"[√] 自检通过：{ip}:{port} 对外可达，手机在同一 WiFi 下应能连上。")
+    else:
+        print(f"[!] 自检未通过：连不上 {ip}:{port}（{err}）")
+        print("    请依次确认：")
+        print("    1) 电脑防火墙是否放行本程序与端口（首次运行常弹窗，需点「允许访问」）")
+        print("    2) 手机与电脑是否连的是同一个 WiFi，且不是访客网络 / AP 隔离")
+        print(f"    3) 若机器有多个网卡，换一个 IP 试试：--ip <上面列出的其他IP>")
+    print()
+
     try:
         while True:
             conn, addr = srv.accept()

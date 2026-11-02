@@ -17,6 +17,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.maoge.barcodescanner.plugin.ScanGunBridge
 import com.google.zxing.ResultPoint
 import com.journeyapps.barcodescanner.BarcodeCallback
 import com.journeyapps.barcodescanner.BarcodeResult
@@ -90,6 +91,21 @@ class MainActivity : AppCompatActivity(), PluginEngine.HostUi {
 
         // 绑定插件引擎：传入 records 引用、数据变更回调与 UI 宿主
         PluginEngine.bind(this, records, { saveAndRefresh() }, this)
+
+        // 扫码枪连接结果反馈：无论成功/失败/断链都弹出来。
+        // 以前扫完二维码只弹一句「连接中」，成败都不再告知，连不上时无从排查。
+        ScanGunBridge.notifier = { st, err ->
+            val msg = when (st) {
+                "connected" -> "扫码枪已连接 → ${ScanGunBridge.host}:${ScanGunBridge.port}"
+                "error" -> "扫码枪连接失败：$err"
+                "disconnected" -> "扫码枪已断开：$err"
+                else -> null
+            }
+            if (msg != null) {
+                Toast.makeText(this, msg, if (st == "error") Toast.LENGTH_LONG else Toast.LENGTH_SHORT)
+                    .show()
+            }
+        }
 
         // 右上角显式菜单按钮（避免部分机型隐藏系统 overflow 图标导致菜单唤不出）
         binding.btnMenu.setOnClickListener { showPopupMenu() }

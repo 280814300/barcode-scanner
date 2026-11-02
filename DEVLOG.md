@@ -188,3 +188,24 @@
 - 内置插件升级机制（关键配套）：原 `installBundledFromAssets` 只要 `bundled_seen.json` 命中就永久跳过，导致新版 APK 修好的插件在已安装设备上永远装不回。改为版本比较：已装且 assets 版本更高 → 覆盖升级并保留用户启用状态；用户主动卸载过的仍不塞回。
 - 自测：LuaJ 四场景（扫连接二维码 / 已连接上报数字码 / 连接失败态 / 未连接态）全部无异常，数字条码输出 `"v":"6901234567890"`；接收器端到端 11 项全 PASS（OK AUTH、PONG、错误令牌回 ERR、旧式直连首条不丢、CSV 落盘）。
 - 版本：`versionCode 6` / `versionName 1.05`，内置插件 `scangun 1.1.1`；`scangun_receiver.py` 纳入仓库跟踪（此前只在 Release 资产里）。
+
+## 阶段 16 · 连接结果可见 + 电脑端 IP 可选（v1.06）
+- 现象（毛哥反馈）：扫绑定二维码时一直提示「连接中」，电脑端连不上。
+- 排查顺序（逐项排除，非猜测）：①接收器 TCP 绑 0.0.0.0 正确；②起实例用**局域网地址**完整模拟手机握手，
+  `OK AUTH` 通过，服务端无问题；③防火墙：python.exe 入站规则覆盖 Public+TCP 全端口，且放行路径
+  与实跑进程路径一致，非防火墙；④权限链路：`PluginEngine.runPlugin` 在调用前已设 `activePermissions`，
+  `network` 生效，非权限问题。结论：问题在手机→电脑这一跳的**可观测性**——
+- 根因：`ScanGunBridge.connect()` 是异步的，而 `main.lua` 在扫码分支里**无条件**弹「连接中…」，
+  成功/失败都不再告知。TCP 失败后 status 变 error，但用户只会反复扫二维码、每次都看到「连接中」，
+  永远看不到失败原因，也就无从排查。
+- 修复（手机端）：`ScanGunBridge` 增加主线程 `notifier` 回调，连接成功/失败/断链均回调；
+  `humanize()` 把 SocketTimeoutException / ConnectException / NoRouteToHostException / EACCES 等
+  翻译成可照做的中文提示。`MainActivity` 注册通知器弹 Toast（失败用 LENGTH_LONG）。
+  同时修掉「正在连接时再次扫码被静默忽略」：仅当连接已卡死超过 8 秒才拒绝重来。
+- 修复（电脑端）：新增 `lan_ips()` 枚举全部非回环 IPv4（排除 169.254 链路本地，标注 Tailscale 100.64/10）、
+  `pick_ip()` 优先路由地址否则退回候选、`self_check()` 用局域网地址回连自己验证对外可达。
+  新增 `/api/info`（当前 IP/端口/候选列表）与 `/api/qr.png?ip=`（按 IP 即时重生成二维码，非法 IP 回退）。
+  界面二维码弹窗加 IP 切换器 + 可复制连接串。支持 `--ip` 覆盖。
+- 自测：电脑端 10/10 全 PASS（自检通过、/api/info、每个候选 IP 出 PNG、非法 IP 回退、
+  局域网握手 OK AUTH、错误令牌回 ERR、数据入界面、数字条码保持原文）。
+- 版本：`versionCode 7` / `versionName 1.06`，内置插件 scangun 1.2.0。

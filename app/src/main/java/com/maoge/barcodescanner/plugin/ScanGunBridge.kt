@@ -1,10 +1,15 @@
 package com.maoge.barcodescanner.plugin
 
+import android.os.Handler
+import android.os.Looper
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
+import java.net.ConnectException
 import java.net.InetSocketAddress
+import java.net.NoRouteToHostException
 import java.net.Socket
+import java.net.SocketTimeoutException
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Executors
 
@@ -17,16 +22,20 @@ import java.util.concurrent.Executors
  * - 所有 Socket 操作都在单线程 executor 上执行，Lua 侧的 `on_scan` 在主线程调用
  *   [send] 时只是把写入任务入队，绝不阻塞也不触发 NetworkOnMainThreadException。
  * - 连接状态为单例，跨插件调用保持（菜单里 connect，扫码时 send 复用同一条连接）。
+ * - v1.06：连接结果通过 [notifier] 在主线程回调给界面。此前无论成败都只弹「连接中」，
+ *   用户看不到失败原因，是「一直连接中却连不上」却无从排查的直接原因。
  */
 object ScanGunBridge {
 
     private val executor = Executors.newSingleThreadExecutor { r -> Thread(r, "scangun-io") }
     private val lock = Any()
+    private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
 
     @Volatile private var socket: Socket? = null
     @Volatile private var writer: OutputStreamWriter? = null
     @Volatile private var reader: BufferedReader? = null
     @Volatile private var readerThread: Thread? = null
+    @Volatile private var connectStartedAt: Long = 0L
 
     /** 对外暴露的连接状态：disconnected / connecting / connected / error */
     @Volatile var status: String = "disconnected"
@@ -35,23 +44,39 @@ object ScanGunBridge {
     @Volatile var lastError: String = ""
         private set
 
+    /**
+     * 状态变更通知（已切到主线程）。参数：(状态, 错误原因)。
+     * 由 MainActivity 注册后弹 Toast；未注册时静默，不影响功能。
+     */
+    @Volatile var notifier: ((String, String) -> Unit)? = null
+
     var host: String = ""
     var port: Int = 17533
     /** 配对令牌：非空前，连接建立后会先发送 `AUTH <token>` 完成鉴权 */
     var authToken: String = ""
 
-    fun configure(host: String, port: Int) {
-        this.host = host
-        this.port = port
+    private fun notifyUi(st: String, err: String) {
+        val cb = notifier ?: return
+        mainHandler.post { cb.invoke(st, err) }
+    }
+
+    fun configure(h: String, p: Int) {
+        host = h
+        port = p
     }
 
     fun connect(token: String = "") {
-        this.authToken = token
+        authToken = token
         executor.execute {
             synchronized(lock) {
-                if (status == "connected" || status == "connecting") return@execute
+                // 已连上则忽略；正在连接时，只有明显卡死（超过 8 秒）才允许重来，
+                // 否则用户连扫两次二维码会被静默忽略，看不到任何反馈。
+                val pending = status == "connecting" &&
+                        (System.currentTimeMillis() - connectStartedAt) < 8000
+                if (status == "connected" || pending) return@execute
                 try {
                     status = "connecting"
+                    connectStartedAt = System.currentTimeMillis()
                     lastError = ""
                     val s = Socket()
                     s.connect(InetSocketAddress(host, port), 5000)
@@ -67,10 +92,14 @@ object ScanGunBridge {
                     }
                     // 起读线程接收电脑端回执：鉴权成功为 OK AUTH，失败为 ERR <原因>
                     startReader()
+                    // v1.06：连接成功必须让用户看见，而不是停在「连接中」
+                    notifyUi("connected", "")
                 } catch (e: Exception) {
-                    lastError = e.localizedMessage ?: "连接失败"
+                    val reason = humanize(e)
+                    lastError = reason
                     closeLocked()
                     status = "error"
+                    notifyUi("error", reason)
                 }
             }
         }
@@ -98,10 +127,35 @@ object ScanGunBridge {
                     lastError = e.localizedMessage ?: "发送失败"
                     closeLocked()
                     status = "error"
+                    notifyUi("error", lastError)
                 }
             }
         }
         return true
+    }
+
+    /**
+     * 把 Socket 异常翻译成能照着做的中文提示。
+     * 以前直接抛 `connect timed out` 之类的英文，用户拿到也无从下手。
+     */
+    private fun humanize(e: Throwable): String {
+        val m = e.localizedMessage ?: ""
+        return when {
+            e is SocketTimeoutException || m.contains("timed out", true) ||
+                    m.contains("ETIMEDOUT", true) ->
+                "连接超时：$host:$port 连不上。请确认 ①电脑上接收器正在运行 ②手机与电脑连的是同一个 WiFi（不是手机流量）③不是路由器访客网络/AP 隔离"
+            e is ConnectException || m.contains("refused", true) ||
+                    m.contains("ECONNREFUSED", true) ->
+                "连接被拒绝：电脑在线但端口 $port 没人接。请确认接收器已启动，且端口与电脑上显示的一致"
+            e is NoRouteToHostException || m.contains("EHOSTUNREACH", true) ||
+                    m.contains("ENETUNREACH", true) ->
+                "网络不可达：手机与电脑不在同一局域网。请让手机连上电脑所在的同一个 WiFi"
+            m.contains("EACCES", true) || m.contains("EPERM", true) ->
+                "网络权限被拒绝：请在系统设置里允许本 App 使用网络"
+            m.contains("unresolved", true) || e is java.net.UnknownHostException ->
+                "地址无法解析：$host 不是有效的 IP"
+            else -> "连接失败：${if (m.isBlank()) e.javaClass.simpleName else m}"
+        }
     }
 
     private fun closeLocked() {
@@ -131,8 +185,11 @@ object ScanGunBridge {
                     val line = reader?.readLine() ?: break
                     when {
                         line.startsWith("ERR") -> {
-                            lastError = line.removePrefix("ERR").trim()
+                            val reason = line.removePrefix("ERR").trim()
+                            lastError = reason
                             status = "error"
+                            notifyUi("error", reason)
+                            break
                         }
                         line.startsWith("OK") -> {
                             lastError = ""
@@ -146,6 +203,7 @@ object ScanGunBridge {
             if (status == "connected") {
                 status = "disconnected"
                 if (lastError.isEmpty()) lastError = "与电脑端的连接已断开"
+                notifyUi("disconnected", lastError)
             }
         }, "scangun-reader")
         t.isDaemon = true
