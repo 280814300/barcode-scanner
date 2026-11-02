@@ -178,3 +178,13 @@
   - 配对令牌打印改为独立成行，避免复制时带出说明文字。
   - 自测：端到端脚本 17 项全 PASS（JSON/裸文本接收、设备计数、界面 HTML、二维码 PNG、清空后继续接收且 id 不回退、CSV 行数与内容）；Chromium 无头截图验证桌面 1360px 与窄屏 520px 布局均无溢出（430px 截图曾现"截断"，经注入诊断确认是 Chrome headless 最小窗口宽 488px 的裁切假象，页面 `scrollWidth == innerWidth` 零溢出；顺手把 grid `1fr` 全部改为 `minmax(0,1fr)` 做防御）。
 - 版本：`versionCode 5` / `versionName 1.04`，产物 `barcodescanner-v1.04.apk`（含内置插件资产）。
+
+## 阶段 15 · 修复扫码枪无法同步（v1.05）
+- 现象（毛哥反馈）：扫码与电脑端同步过程中提示出错，无法扫描同步。
+- 根因（用 LuaJ 真实复现确认，非推测）：`main.lua` 的 `on_scan` 里 `local host, port, token = parse_uri(val)` 把全局 `host` 表遮蔽成 IP 字符串，紧接着 `host.scangun.configure(...)` 等价于对字符串取字段，必然抛 `LuaError: main.lua:35 attempt to index ? (a nil value)`，被 `PluginEngine.runPlugin` 的 catch 捕获后弹「插件「外接扫码枪」执行出错」。连接请求从未发出去，所以永远连不上、永远无法同步。修复：局部变量改名 `ip`，并在连接分支用 `pcall(host.remove, val)` 保护。
+- 附带修掉数据错误：`PluginSandbox.luaToJson` 用 `isnumber()` 判断，而 LuaJ 里数字型字符串的 `isnumber()` 也返回 true，导致条码 `6901234567890` 被转成 `6.90123456789E12`。改为按 `type()` 精确判断（TSTRING/TNUMBER/TBOOLEAN），数字条码按原文传输。
+- 接收器修掉历史 bug：旧式无令牌直连时，首行被当成握手行 `continue` 掉，会静默丢失第一条数据。现在旧式首行直接进入解析。
+- 可诊断性：接收器 AUTH 成功回 `OK AUTH`、失败回 `ERR <原因>` 并断开（提示可能是扫了旧截图）；新增 `PING`/`PONG` 心跳。手机端 `ScanGunBridge` 新增读线程接收回执，把 `ERR` 写入 `lastError` 并置 `status=error`；`send()` 增加 writer 判空，避免静默丢数据。插件侧对未连接/连接中/连接失败三种状态分别 toast，不再无声丢弃。
+- 内置插件升级机制（关键配套）：原 `installBundledFromAssets` 只要 `bundled_seen.json` 命中就永久跳过，导致新版 APK 修好的插件在已安装设备上永远装不回。改为版本比较：已装且 assets 版本更高 → 覆盖升级并保留用户启用状态；用户主动卸载过的仍不塞回。
+- 自测：LuaJ 四场景（扫连接二维码 / 已连接上报数字码 / 连接失败态 / 未连接态）全部无异常，数字条码输出 `"v":"6901234567890"`；接收器端到端 11 项全 PASS（OK AUTH、PONG、错误令牌回 ERR、旧式直连首条不丢、CSV 落盘）。
+- 版本：`versionCode 6` / `versionName 1.05`，内置插件 `scangun 1.1.1`；`scangun_receiver.py` 纳入仓库跟踪（此前只在 Release 资产里）。

@@ -19,3 +19,8 @@ tools/
 .DS_Store
 .idea/
 *.swp
+
+# ===== 电脑端接收器运行时产物（不入库） =====
+scans.csv
+scangun_qr.png
+__pycache__/

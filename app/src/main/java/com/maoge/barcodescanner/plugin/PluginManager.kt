@@ -104,9 +104,16 @@ object PluginManager {
         return true
     }
 
-    // 首次启动自动安装随 APK 内置的插件（assets/bundled_plugins 下的 .bsplugin 包）。
-    // 用 bundled_seen.json 记录已处理过的插件 id：用户若已自行导入同名插件则仅记录不再覆盖；
-    // 用户若卸载了内置插件，也不会被重新塞回（尊重用户选择）。
+    // 自动安装 / 升级随 APK 内置的插件（assets/bundled_plugins 下的 .bsplugin 包）。
+    //
+    // 规则：
+    //  1) 未安装 且 未被用户主动卸载过 → 全新安装并默认启用；
+    //  2) 已安装 且 assets 里的版本高于已装版本 → 覆盖升级（保留用户原有启用/禁用状态）；
+    //  3) 已安装 且 版本相同或更低 → 跳过，不打扰用户；
+    //  4) 用户曾主动卸载（记录在 bundled_seen.json）→ 不再塞回，尊重用户选择。
+    //
+    // 第 2 条是内置插件能随 APK 修 bug 的关键：早期实现只要"处理过一次"就永久跳过，
+    // 会导致新版 APK 修好的插件在已安装设备上永远装不回更新版本。
     private fun installBundledFromAssets() {
         try {
             val dir = "bundled_plugins"
@@ -116,25 +123,35 @@ object PluginManager {
                 if (!name.endsWith(".bsplugin", true) && !name.endsWith(".zip", true)) continue
                 val path = dir + "/" + name
                 try {
-                    val id = ctx.assets.open(path).use { peekManifestId(it) } ?: continue
-                    if (seen.contains(id)) continue
-                    // 用户已自行导入过该插件（或上版本已内置），不再覆盖
-                    if (list().any { it.id == id }) {
-                        seen.add(id)
-                        continue
-                    }
-                    // 单独开一条流做真正安装（peek 已消耗另一条流）
-                    var installed = false
-                    ctx.assets.open(path).use { stream ->
-                        val res = installFromStream(stream)
-                        when (res) {
-                            is InstallResult.Ok -> { setBundled(res.info.id, true); installed = true }
-                            is InstallResult.Err -> { }
+                    // 单独开一条流只读清单，拿到 id 与版本（peek 会消耗掉这条流）
+                    val mf = ctx.assets.open(path).use { peekManifest(it) } ?: continue
+                    val existing = list().firstOrNull { it.id == mf.id }
+
+                    if (existing == null) {
+                        if (seen.contains(mf.id)) continue      // 用户卸载过，不再装回
+                        var installed = false
+                        ctx.assets.open(path).use { stream ->
+                            val res = installFromStream(stream)
+                            if (res is InstallResult.Ok) {
+                                setBundled(res.info.id, true)
+                                installed = true
+                            }
+                        }
+                        if (installed) seen.add(mf.id)
+                    } else {
+                        if (compareVersion(mf.version, existing.version) <= 0) continue
+                        // 覆盖升级：installFromStream 会把 enabled 重置为 true，需还原用户选择
+                        val wasEnabled = existing.enabled
+                        ctx.assets.open(path).use { stream ->
+                            val res = installFromStream(stream)
+                            if (res is InstallResult.Ok) {
+                                setBundled(mf.id, true)
+                                setEnabled(mf.id, wasEnabled)
+                            }
                         }
                     }
-                    if (installed) seen.add(id)
                 } catch (e: Exception) {
-                    // 单个插件失败不影响其余；保留 seen 不写该 id 以便重试
+                    // 单个插件失败不影响其余；本次不写 seen，下次启动重试
                 }
             }
             saveBundledSeen(seen)
@@ -143,14 +160,27 @@ object PluginManager {
         }
     }
 
-    // 从 zip 流里只读 plugin.bsmanifest.json，取插件 id（不消耗安装用的流）
-    private fun peekManifestId(stream: java.io.InputStream): String? {
+    /** 语义化版本比较：返回 >0 表示 a 新于 b */
+    private fun compareVersion(a: String, b: String): Int {
+        val pa = a.split(".", "-", "+", "_").mapNotNull { it.trim().toIntOrNull() }
+        val pb = b.split(".", "-", "+", "_").mapNotNull { it.trim().toIntOrNull() }
+        val n = if (pa.size > pb.size) pa.size else pb.size
+        for (i in 0 until n) {
+            val x = if (i < pa.size) pa[i] else 0
+            val y = if (i < pb.size) pb[i] else 0
+            if (x != y) return if (x > y) 1 else -1
+        }
+        return 0
+    }
+
+    // 从 zip 流里只读 plugin.bsmanifest.json，取完整清单（id + version，供版本比较）
+    private fun peekManifest(stream: java.io.InputStream): PluginManifest? {
         ZipInputStream(stream).use { zis ->
             var entry = zis.nextEntry
             while (entry != null) {
                 if (!entry.isDirectory && entry.name == MANIFEST_NAME) {
                     val text = zis.bufferedReader().readText()
-                    return try { PluginManifest.parse(text).id } catch (e: Exception) { null }
+                    return try { PluginManifest.parse(text) } catch (e: Exception) { null }
                 }
                 zis.closeEntry()
                 entry = zis.nextEntry

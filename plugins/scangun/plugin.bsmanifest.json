@@ -1,7 +1,7 @@
 {
   "id": "scangun",
   "name": "外接扫码枪",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": "毛栋梁",
   "minHostVersion": "1.03",
   "entry": "main.lua",

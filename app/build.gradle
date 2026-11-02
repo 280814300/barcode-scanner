@@ -11,8 +11,8 @@ android {
         applicationId "com.maoge.barcodescanner"
         minSdk 23
         targetSdk 34
-        versionCode 5
-        versionName "1.04"
+        versionCode 6
+        versionName "1.05"
     }
 
     // 发布签名：口令来自 local.properties（已被 .gitignore 忽略，不会入库）

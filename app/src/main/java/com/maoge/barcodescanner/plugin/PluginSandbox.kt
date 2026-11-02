@@ -50,9 +50,12 @@ fun jsonToLua(v: Any?): LuaValue = when (v) {
 /** LuaValue → JSONObject / JSONArray / 基础类型（递归） */
 fun luaToJson(v: LuaValue): Any? = when {
     v.isnil() -> null
-    v.isboolean() -> v.toboolean()
-    v.isnumber() -> v.todouble()
-    v.isstring() -> v.tojstring()
+    // 必须按 Lua 真实类型判断，不能用 isstring()/isnumber()：
+    // LuaJ 里数字型字符串（如条码 "6901234567890"）的 isnumber() 也返回 true，
+    // 若先判 isnumber 会把它转成 double，导致条码变成 6.90123456789E12 这类科学计数法。
+    v.type() == LuaValue.TBOOLEAN -> v.toboolean()
+    v.type() == LuaValue.TSTRING -> v.tojstring()
+    v.type() == LuaValue.TNUMBER -> if (v.isinttype()) v.toint() else v.todouble()
     v.istable() -> {
         val t = v.checktable()
         val n = t.length()
