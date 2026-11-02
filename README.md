@@ -25,19 +25,23 @@
 
 ## 界面预览
 
-> 以下截图来自 v1.02 真机界面（高保真还原）。
+> 手机端截图来自真机界面（高保真还原）；电脑端截图为 v1.04 实时采集界面。
 
 **主界面（扫码 + 本地列表）**
 
-![主界面](https://github.com/280814300/barcode-scanner/releases/download/v1.02/shot-main.png)
+![主界面](https://github.com/280814300/barcode-scanner/releases/download/v1.04/shot-main.png)
 
 **点击条码编辑**
 
-![编辑条码](https://github.com/280814300/barcode-scanner/releases/download/v1.02/shot-edit.png)
+![编辑条码](https://github.com/280814300/barcode-scanner/releases/download/v1.04/shot-edit.png)
 
 **批量勾选 + 导出菜单**
 
-![批量操作](https://github.com/280814300/barcode-scanner/releases/download/v1.02/shot-batch.png)
+![批量操作](https://github.com/280814300/barcode-scanner/releases/download/v1.04/shot-batch.png)
+
+**电脑端实时采集界面（v1.04 新增）**
+
+![电脑端界面](https://github.com/280814300/barcode-scanner/releases/download/v1.04/shot-receiver-desktop.png)
 
 **插件中心（导入 / 启用 / 卸载 / 分享接收）**
 
